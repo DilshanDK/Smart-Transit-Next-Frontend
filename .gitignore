@@ -1,7 +1,10 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Next.js specific
+.next/
+out/
+build/
 
-# dependencies
-/node_modules
+# Dependencies
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -9,33 +12,60 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
 
-# testing
+# Testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# Environment variables (SENSITIVE)
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# production
-/build
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.vercel
 
-# misc
+# OS
 .DS_Store
-*.pem
+Thumbs.db
 
-# debug
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Firebase & Credentials (SENSITIVE)
+*.pem
+*.key
+*.jks
+serviceAccountKey.json
+firebase-credentials.json
+GoogleService-Info.plist
 
-# vercel
-.vercel
-
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Next.js cache
+.turbo/
+.swc/
