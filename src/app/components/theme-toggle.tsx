@@ -1,32 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-type ThemeMode = "light" | "dark";
+import { Sun, Moon } from "lucide-react";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>("light");
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as ThemeMode | null;
-    const prefersDark =
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial = stored ?? (prefersDark ? "dark" : "light");
-    setTheme(initial);
-    document.documentElement.dataset.theme = initial;
-  }, []);
-
   const handleToggle = () => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
+    const current = document.documentElement.dataset.theme || "light";
+    const next = current === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = next;
     localStorage.setItem("theme", next);
   };
 
   return (
-    <button className="btn-outline" onClick={handleToggle} type="button">
-      {theme === "light" ? "Dark mode" : "Light mode"}
+    <button
+      onClick={handleToggle}
+      type="button"
+      className="h-10 w-10 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-variant)] flex items-center justify-center text-muted hover:text-[var(--color-on-surface)] transition-all cursor-pointer"
+      aria-label="Toggle theme"
+    >
+      <Sun className="h-4.5 w-4.5 text-amber-500 hidden dark-theme-show" />
+      <Moon className="h-4.5 w-4.5 text-[var(--color-secondary)] dark-theme-hide" />
     </button>
   );
 }

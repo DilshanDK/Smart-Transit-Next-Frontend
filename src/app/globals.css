@@ -147,3 +147,18 @@ body {
   color: var(--color-on-surface);
   border: 1px solid var(--color-outline-variant);
 }
+
+/* Theme Toggle helpers */
+:root[data-theme="dark"] .dark-theme-show {
+  display: block !important;
+}
+:root[data-theme="dark"] .dark-theme-hide {
+  display: none !important;
+}
+:root:not([data-theme="dark"]) .dark-theme-show {
+  display: none !important;
+}
+:root:not([data-theme="dark"]) .dark-theme-hide {
+  display: block !important;
+}
+
