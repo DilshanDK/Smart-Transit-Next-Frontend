@@ -1,43 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #006e25;
+  --color-primary: #6366f1;
   --color-on-primary: #ffffff;
-  --color-bg: #f9f9fe;
+  --color-bg: #f5f7fa;
   --color-surface: #ffffff;
-  --color-surface-variant: #ededf2;
-  --color-on-surface: #1a1c1f;
-  --color-secondary: #5f5e60;
-  --color-outline: #6e7b6b;
-  --color-outline-variant: #bdcab9;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06);
+  --color-surface-variant: #f1f3f7;
+  --color-on-surface: #0f172a;
+  --color-secondary: #475569;
+  --color-outline: #cbd5e1;
+  --color-outline-variant: #e2e8f0;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.04);
 }
 
 :root[data-theme="dark"] {
-  --color-bg: #121212;
-  --color-surface: #1c1c1e;
-  --color-surface-variant: #2c2c2e;
-  --color-on-surface: #f0f0f5;
-  --color-secondary: #c8c6c8;
-  --color-outline: #8d9b8a;
-  --color-outline-variant: #474649;
-  --shadow-card: 0 0 0 rgba(0, 0, 0, 0);
+  --color-primary: #818cf8;
+  --color-on-primary: #ffffff;
+  --color-bg: #080b11;
+  --color-surface: rgba(17, 24, 39, 0.65);
+  --color-surface-variant: rgba(255, 255, 255, 0.03);
+  --color-on-surface: #f3f4f6;
+  --color-secondary: #9ca3af;
+  --color-outline: rgba(255, 255, 255, 0.15);
+  --color-outline-variant: rgba(255, 255, 255, 0.08);
+  --shadow-card: 0 10px 40px 10px rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --color-bg: #121212;
-    --color-surface: #1c1c1e;
-    --color-surface-variant: #2c2c2e;
-    --color-on-surface: #f0f0f5;
-    --color-secondary: #c8c6c8;
-    --color-outline: #8d9b8a;
-    --color-outline-variant: #474649;
-    --shadow-card: 0 0 0 rgba(0, 0, 0, 0);
+    --color-primary: #818cf8;
+    --color-on-primary: #ffffff;
+    --color-bg: #080b11;
+    --color-surface: rgba(17, 24, 39, 0.65);
+    --color-surface-variant: rgba(255, 255, 255, 0.03);
+    --color-on-surface: #f3f4f6;
+    --color-secondary: #9ca3af;
+    --color-outline: rgba(255, 255, 255, 0.15);
+    --color-outline-variant: rgba(255, 255, 255, 0.08);
+    --shadow-card: 0 10px 40px 10px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -74,9 +78,12 @@ body {
 
 .card {
   background: var(--color-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--color-outline-variant);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .text-muted {
