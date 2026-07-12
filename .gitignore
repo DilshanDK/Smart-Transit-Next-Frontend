@@ -69,3 +69,4 @@ next-env.d.ts
 # Next.js cache
 .turbo/
 .swc/
+.env.production

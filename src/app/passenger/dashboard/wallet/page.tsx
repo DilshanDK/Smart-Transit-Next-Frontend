@@ -201,7 +201,7 @@ export default function WalletPage() {
             <div className="space-y-1 my-4">
               <span className="text-xs text-white/60 font-bold uppercase tracking-widest">Available Balance</span>
               <div className="text-4xl font-extrabold tracking-tight">
-                LKR {user?.walletBalance !== undefined ? user.walletBalance.toFixed(2) : "0.00"}
+                LKR {user?.walletBalance !== undefined ? parseFloat(String((user as any).walletBalance?.$numberDecimal ?? (user as any).walletBalance ?? 0)).toFixed(2) : "0.00"}
               </div>
             </div>
 
