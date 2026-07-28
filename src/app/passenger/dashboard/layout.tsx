@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/core/context/AuthContext';
 import { LayoutDashboard, History, Wallet, User, LogOut, Menu, X, Bus, Bell, Clock, Compass, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ThemeToggle from '../../components/theme-toggle';
+import ConfirmModal from '../../components/confirm-modal';
 
 export default function PassengerDashboardLayout({
   children,
@@ -14,7 +15,10 @@ export default function PassengerDashboardLayout({
 }) {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [localTime, setLocalTime] = useState('');
 
   // Update live clock
@@ -49,9 +53,9 @@ export default function PassengerDashboardLayout({
   ];
 
   const handleLogout = async () => {
-    if (confirm('Are you sure you want to end your session?')) {
-      await logout();
-    }
+    setIsLoggingOut(true);
+    await logout();
+    router.push('/login');
   };
 
   const getPageTitle = () => {
@@ -158,7 +162,7 @@ export default function PassengerDashboardLayout({
                   </div>
                 )}
                 <button
-                  onClick={handleLogout}
+                  onClick={() => setIsLogoutModalOpen(true)}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-500 hover:bg-red-500/5 hover:text-red-600 transition-all font-bold text-xs mt-2 cursor-pointer border border-transparent hover:border-red-500/10"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -203,6 +207,17 @@ export default function PassengerDashboardLayout({
           {children}
         </main>
       </div>
+
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        title="End Session"
+        message="Are you sure you want to log out of your dashboard?"
+        confirmText="Log Out"
+        isDangerous={true}
+        isLoading={isLoggingOut}
+        onConfirm={handleLogout}
+        onCancel={() => setIsLogoutModalOpen(false)}
+      />
     </div>
   );
 }

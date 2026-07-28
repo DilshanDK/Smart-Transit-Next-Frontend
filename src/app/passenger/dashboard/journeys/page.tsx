@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/core/lib/api-client";
 import {
   Bus,
@@ -33,6 +34,7 @@ interface Journey {
 }
 
 export default function JourneysPage() {
+  const router = useRouter();
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchRoute, setSearchRoute] = useState("");
@@ -177,7 +179,7 @@ export default function JourneysPage() {
                 return (
                   <div
                     key={journey._id}
-                    onClick={() => setSelectedJourney(journey)}
+                    onClick={() => { setSelectedJourney(journey); router.push(`/passenger/dashboard/journeys/${journey._id}`); }}
                     className={`card p-5 cursor-pointer transition-all hover:scale-[1.01] flex items-center justify-between border ${
                       isSelected
                         ? "border-[var(--color-primary)] bg-[var(--color-primary)] bg-opacity-[0.02]"

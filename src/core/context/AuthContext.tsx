@@ -19,7 +19,9 @@ interface AuthContextType {
   user: UserProfile | null;
   role: 'passenger' | 'driver' | 'company' | null;
   loading: boolean;
-  loginPassenger: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<'passenger' | 'company' | 'driver'>;
+  googleLogin: (idToken: string, role: 'passenger' | 'company') => Promise<'passenger' | 'company'>;
+  unifiedGoogleLogin: (idToken: string) => Promise<'passenger' | 'company' | 'driver'>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<boolean>;
 }
@@ -64,10 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUserFromToken();
   }, []);
 
-  const loginPassenger = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<'passenger' | 'company' | 'driver'> => {
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/passenger/login', { email, password });
+      const response = await apiClient.post('/auth/login', { email, password });
       if (response.status === 200 || response.status === 201) {
         const { accessToken, refreshToken, role: userRole } = response.data;
         Cookies.set('transit_token', accessToken, { expires: 7 });
@@ -80,9 +82,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(profileRes.data.user);
         }
         
-        router.push('/passenger/dashboard');
+        return userRole;
       }
+      throw new Error('Verification failed');
     } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const googleLogin = async (idToken: string, targetRole: 'passenger' | 'company'): Promise<'passenger' | 'company'> => {
+    setLoading(true);
+    try {
+      const response = await apiClient.post(`/auth/${targetRole}/google`, { idToken });
+      if (response.status === 200 || response.status === 201) {
+        const { accessToken, refreshToken, role: userRole } = response.data;
+        Cookies.set('transit_token', accessToken, { expires: 7 });
+        Cookies.set('transit_refresh_token', refreshToken, { expires: 7 });
+        setRole(userRole);
+        
+        const profileRes = await apiClient.get('/auth/me');
+        if (profileRes.status === 200) {
+          setUser(profileRes.data.user);
+        }
+        
+        return userRole as 'passenger' | 'company';
+      }
+      throw new Error('Google verification failed');
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unifiedGoogleLogin = async (idToken: string): Promise<'passenger' | 'company' | 'driver'> => {
+    setLoading(true);
+    try {
+      const response = await apiClient.post(`/auth/unified/google`, { idToken });
+      if (response.status === 200 || response.status === 201) {
+        const { accessToken, refreshToken, role: userRole } = response.data;
+        Cookies.set('transit_token', accessToken, { expires: 7 });
+        Cookies.set('transit_refresh_token', refreshToken, { expires: 7 });
+        setRole(userRole);
+        
+        const profileRes = await apiClient.get('/auth/me');
+        if (profileRes.status === 200) {
+          setUser(profileRes.data.user);
+        }
+        
+        return userRole as 'passenger' | 'company' | 'driver';
+      }
+      throw new Error('Unified Google verification failed');
+    } catch (error: any) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
       throw error;
     } finally {
       setLoading(false);
@@ -124,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, loginPassenger, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, role, loading, login, googleLogin, unifiedGoogleLogin, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

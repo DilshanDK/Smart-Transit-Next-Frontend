@@ -22,11 +22,11 @@ function CheckoutForm({ clientSecret }: { clientSecret: string }) {
     }
     setLoading(true);
     const { error } = await stripe.confirmPayment({
-      //`clientSecret` is fetched from the backend via the PaymentIntent endpoint.
+      elements,
       clientSecret,
-      //`return_url` can be omitted for client‑side only flows; we handle the result here.
+      redirect: "if_required",
       confirmParams: {
-        // Provide a placeholder receipt email – replace with a real user email in production.
+        return_url: window.location.href,
         receipt_email: "demo@example.com",
       },
     });

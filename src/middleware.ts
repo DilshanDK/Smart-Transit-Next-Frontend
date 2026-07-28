@@ -29,7 +29,7 @@ export function middleware(request: NextRequest) {
   // 1. Guard Passenger Portal
   if (pathname.startsWith('/passenger/dashboard')) {
     if (!token || role !== 'passenger') {
-      const response = NextResponse.redirect(new URL('/passenger/login', request.url));
+      const response = NextResponse.redirect(new URL('/login', request.url));
       // Clear token cookie if it is invalid or has wrong role
       if (token) {
         response.cookies.delete('transit_token');
@@ -42,7 +42,7 @@ export function middleware(request: NextRequest) {
   // 2. Guard Company Portal
   if (pathname.startsWith('/company/dashboard')) {
     if (!token || role !== 'company') {
-      const response = NextResponse.redirect(new URL('/company/login', request.url));
+      const response = NextResponse.redirect(new URL('/login', request.url));
       // Clear token cookie if it is invalid or has wrong role
       if (token) {
         response.cookies.delete('transit_token');
@@ -52,25 +52,38 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 3. Redirect Authenticated Users away from Login/Register pages
-  if (pathname === '/passenger/login' || pathname === '/passenger/register') {
-    if (token && role === 'passenger') {
-      return NextResponse.redirect(new URL('/passenger/dashboard', request.url));
+  // 3. Prevent logged-in users from accessing the login page
+  if (pathname === '/login') {
+    if (token && role) {
+      if (role === 'passenger') {
+        return NextResponse.redirect(new URL('/passenger/dashboard', request.url));
+      }
+      if (role === 'company') {
+        return NextResponse.redirect(new URL('/company/dashboard', request.url));
+      }
     }
   }
 
-  if (pathname === '/company/login') {
-    if (token && role === 'company') {
-      return NextResponse.redirect(new URL('/company/dashboard', request.url));
+  // 4. Redirect root to unified login if no token, else their dashboard
+  if (pathname === '/') {
+    if (!token || !role) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    } else {
+      if (role === 'passenger') {
+        return NextResponse.redirect(new URL('/passenger/dashboard', request.url));
+      }
+      if (role === 'company') {
+        return NextResponse.redirect(new URL('/company/dashboard', request.url));
+      }
     }
-  }
-
-  return NextResponse.next();
+  } return NextResponse.next();
 }
 
 // Specify the paths that the middleware should run on
 export const config = {
   matcher: [
+    '/',
+    '/login',
     '/passenger/:path*',
     '/company/:path*',
   ],
