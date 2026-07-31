@@ -36,7 +36,7 @@ export default function Home() {
       
       {/* 1. Header (Navbar) */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-[var(--color-surface)] bg-opacity-80 border-b border-[var(--color-outline-variant)]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -67,7 +67,7 @@ export default function Home() {
               <span>Server Port: 5000</span>
             </div>
             <ThemeToggle />
-            <Link href="/passenger/login" className="text-sm font-bold text-[var(--color-on-surface)] hover:text-indigo-400 transition-colors mr-2">
+            <Link href="/login" className="text-sm font-bold text-[var(--color-on-surface)] hover:text-indigo-400 transition-colors mr-2">
               Log In
             </Link>
             <Link href="/passenger/register" className="bg-gradient-to-r from-indigo-500 to-teal-500 hover:from-indigo-600 hover:to-teal-600 text-white font-bold text-sm px-6 py-2.5 rounded-full shadow-lg shadow-indigo-500/15 transition-all text-center">
@@ -100,7 +100,7 @@ export default function Home() {
               Features
             </Link>
             <div className="h-px bg-[var(--color-outline-variant)] my-1" />
-            <Link href="/passenger/login" onClick={() => setMobileMenuOpen(false)} className="text-sm font-bold text-center py-2 text-[var(--color-on-surface)]">
+            <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm font-bold text-center py-2 text-[var(--color-on-surface)]">
               Log In
             </Link>
             <Link href="/passenger/register" onClick={() => setMobileMenuOpen(false)} className="bg-gradient-to-r from-indigo-500 to-teal-500 text-white text-center font-bold py-3 rounded-xl mt-1 block shadow-lg shadow-indigo-500/10">
@@ -111,16 +111,16 @@ export default function Home() {
       </header>
 
       {/* 2. Hero Section (Dynamic Refactored Layout) */}
-      <section className="relative overflow-hidden border-b border-[var(--color-outline-variant)] bg-linear-to-b from-[var(--color-surface)] to-[var(--color-bg)] py-12 md:py-20 lg:py-28">
+      <section className="relative overflow-hidden border-b border-[var(--color-outline-variant)] bg-linear-to-b from-[var(--color-surface)] to-[var(--color-bg)] pt-16 pb-12 md:pt-24 md:pb-20 lg:pt-32 lg:pb-28">
         
         {/* Glow ambient backdrops */}
         <div className="absolute top-[10%] left-[-10%] w-[35%] h-[35%] rounded-full bg-indigo-500/10 blur-[130px] pointer-events-none" />
         <div className="absolute bottom-[5%] right-[-10%] w-[35%] h-[35%] rounded-full bg-teal-500/10 blur-[130px] pointer-events-none" />
         
-        <div className="max-w-6xl mx-auto px-6 grid gap-12 lg:grid-cols-12 items-center relative z-10">
+        <div className="max-w-[1400px] mx-auto px-6 grid gap-8 lg:gap-16 lg:grid-cols-12 items-center relative z-10">
           
           {/* Hero Left Content */}
-          <div className="lg:col-span-7 space-y-6 md:space-y-8 text-left">
+          <div className="lg:col-span-6 space-y-6 md:space-y-8 text-left pr-4">
             <div className="inline-flex items-center gap-2.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
               <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">Unified Transit Infrastructure</span>
@@ -146,28 +146,28 @@ export default function Home() {
           </div>
 
           {/* Hero Right: Mosaic Card Grid Layout (Matching PrimeCruise structure) */}
-          <div className="lg:col-span-5 relative">
+          <div className="lg:col-span-6 relative mt-12 lg:mt-0">
             <div className="grid grid-cols-12 gap-4">
               
               {/* Card 1: Vertical Card (Left Column - Spans 5 columns) */}
-              <div className="col-span-5 card p-5 flex flex-col justify-between min-h-[310px] bg-slate-950/40 border-white/5 shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-indigo-500/5 blur-xl group-hover:bg-indigo-500/10 transition-colors" />
+              <div className="col-span-5 card p-5 flex flex-col justify-between min-h-[310px] relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-[var(--color-primary)]/5 blur-xl group-hover:bg-[var(--color-primary)]/10 transition-colors" />
                 <div className="space-y-4">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                  <div className="h-10 w-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center border border-[var(--color-primary)]/20 text-[var(--color-primary)]">
                     <CreditCard className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Transit Pass</h4>
+                    <h4 className="text-xs font-bold text-muted uppercase tracking-wider">Transit Pass</h4>
                     <h3 className="text-sm font-extrabold text-[var(--color-on-surface)] mt-1">TransitFlow Plus</h3>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="text-[10px] font-mono tracking-widest text-slate-400">
+                  <div className="text-[10px] font-mono tracking-widest text-muted">
                     •••• •••• 4289
                   </div>
-                  <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                    <span className="text-[9px] font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25">Contactless</span>
+                  <div className="flex items-center justify-between border-t border-[var(--color-outline-variant)] pt-3">
+                    <span className="text-[9px] font-bold text-emerald-500 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25">Contactless</span>
                     <span className="text-[10px] font-bold text-[var(--color-on-surface)]">LKR 1,250</span>
                   </div>
                 </div>
@@ -177,65 +177,106 @@ export default function Home() {
               <div className="col-span-7 flex flex-col gap-4">
                 
                 {/* Card 2: Top Right - Live GPS Tracking Map */}
-                <div className="card p-4 h-[185px] bg-slate-950/40 border-white/5 shadow-2xl overflow-hidden relative flex flex-col justify-between">
+                <div className="card p-4 h-[185px] overflow-hidden relative flex flex-col justify-between">
                   <div className="flex items-center justify-between z-10">
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
                       <span className="text-[11px] font-bold text-[var(--color-on-surface)]">Route 120 - Active</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-semibold">Live GPS</span>
+                    <span className="text-[10px] text-muted font-semibold">Live GPS</span>
                   </div>
 
                   {/* Mock Mini Map Graphics */}
-                  <div className="absolute inset-x-0 bottom-0 h-[100px] bg-slate-900/30 overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:12px_12px]" />
+                  <div className="absolute inset-x-0 bottom-0 h-[100px] bg-[var(--color-surface-variant)] overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(128,128,128,0.1)_1px,transparent_1px)] bg-[size:12px_12px]" />
                     {/* Dotted path route */}
-                    <div className="absolute top-[40%] left-[10%] w-[80%] h-0.5 border-t-2 border-dashed border-indigo-500/50" />
+                    <div className="absolute top-[40%] left-[10%] w-[80%] h-0.5 border-t-2 border-dashed border-[var(--color-primary)]/50" />
                     {/* Pulsing Bus Icon */}
-                    <div className="absolute top-[32%] left-[45%] h-6 w-6 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/50 animate-bounce">
+                    <div className="absolute top-[32%] left-[45%] h-6 w-6 rounded-lg bg-[var(--color-primary)] flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/50 animate-bounce">
                       <Bus className="h-3 w-3 text-white" />
                     </div>
                     {/* Stops */}
-                    <div className="absolute top-[35%] left-[10%] h-2.5 w-2.5 rounded-full bg-teal-400 border-2 border-slate-900" />
-                    <div className="absolute top-[35%] left-[80%] h-2.5 w-2.5 rounded-full bg-teal-400 border-2 border-slate-900" />
+                    <div className="absolute top-[35%] left-[10%] h-2.5 w-2.5 rounded-full bg-teal-400 border-2 border-[var(--color-surface)]" />
+                    <div className="absolute top-[35%] left-[80%] h-2.5 w-2.5 rounded-full bg-teal-400 border-2 border-[var(--color-surface)]" />
                   </div>
 
-                  <div className="z-10 bg-slate-950/60 backdrop-blur-xs px-2.5 py-1.5 rounded-lg border border-white/5 flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400">Next Stop: Town Hall</span>
-                    <span className="font-bold text-teal-400">ETA: 4 min</span>
+                  <div className="z-10 bg-[var(--color-surface)]/80 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-[var(--color-outline-variant)] flex items-center justify-between text-[10px]">
+                    <span className="text-muted">Next Stop: Town Hall</span>
+                    <span className="font-bold text-[var(--color-primary)]">ETA: 4 min</span>
                   </div>
                 </div>
 
                 {/* Card 3: Bottom Right - Dynamic Scanning QR Pass */}
-                <div className="card p-4 h-[110px] bg-slate-950/40 border-white/5 shadow-2xl flex items-center justify-between gap-4 overflow-hidden relative">
+                <div className="card p-4 h-[110px] flex items-center justify-between gap-4 overflow-hidden relative">
                   <div className="space-y-2">
-                    <div className="h-7 w-7 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-400">
+                    <div className="h-7 w-7 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
                       <QrCode className="h-4 w-4" />
                     </div>
                     <div className="space-y-0.5">
                       <h4 className="text-[10px] font-extrabold text-[var(--color-on-surface)]">Dynamic Boarding QR</h4>
-                      <span className="text-[9px] text-slate-400">Refreshes in 18s</span>
+                      <span className="text-[9px] text-muted">Refreshes in 18s</span>
                     </div>
                   </div>
                   
-                  {/* Mock QR graphic */}
-                  <div className="h-16 w-16 bg-white p-1.5 rounded-lg shrink-0 relative overflow-hidden group shadow-lg">
-                    <div className="absolute inset-0 bg-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {/* Stylized QR lines */}
-                    <div className="w-full h-full flex flex-col justify-between">
-                      <div className="flex justify-between">
-                        <div className="w-4 h-4 border-2 border-black" />
-                        <div className="w-4 h-4 border-2 border-black" />
+                  {/* Mock QR graphic (Complex High-Density Dynamic Grid) */}
+                  <div className="h-16 w-16 bg-white p-1.5 rounded-md shrink-0 relative overflow-hidden shadow-md border border-neutral-200">
+                    <style>{`
+                      @keyframes qr-refresh {
+                        0%, 85% { opacity: 1; filter: blur(0px); transform: scale(1); }
+                        90% { opacity: 0.2; filter: blur(3px); transform: scale(0.95); }
+                        95% { opacity: 1; filter: blur(0px); transform: scale(1.05); }
+                        100% { opacity: 1; filter: blur(0px); transform: scale(1); }
+                      }
+                      @keyframes scan {
+                        0% { top: -10%; opacity: 0; }
+                        15% { opacity: 1; }
+                        85% { opacity: 1; }
+                        100% { top: 110%; opacity: 0; }
+                      }
+                    `}</style>
+                    <div className="w-full h-full relative" style={{ animation: 'qr-refresh 5s infinite' }}>
+                      {/* High-density 9x9 grid */}
+                      <div className="grid grid-cols-9 grid-rows-9 gap-[1px] w-full h-full">
+                        {[...Array(81)].map((_, i) => {
+                          const row = Math.floor(i / 9);
+                          const col = i % 9;
+                          // Leave space for the 3 anchor squares (4x4 blocks in corners)
+                          const isTL = row < 4 && col < 4;
+                          const isTR = row < 4 && col > 4;
+                          const isBL = row > 4 && col < 4;
+                          if (isTL || isTR || isBL) return <div key={i} />;
+                          
+                          // Pseudo-random dense pattern
+                          const isFilled = (row * 13 + col * 7) % 3 !== 0;
+                          if (!isFilled) return <div key={i} />;
+                          
+                          return (
+                            <div 
+                              key={i} 
+                              className="bg-slate-800 rounded-[1px] animate-pulse" 
+                              style={{ animationDuration: `${1 + ((i % 5) * 0.5)}s` }} 
+                            />
+                          );
+                        })}
                       </div>
-                      <div className="h-2 w-full bg-slate-800 rounded-xs mt-1.5" />
-                      <div className="h-1 w-2/3 bg-slate-800 rounded-xs" />
-                      <div className="flex justify-between items-end mt-1">
-                        <div className="w-4 h-4 border-2 border-black" />
-                        <div className="w-3 h-3 bg-slate-800" />
+                      
+                      {/* 3 Corner Anchor Squares */}
+                      <div className="absolute top-0 left-0 w-[20px] h-[20px] border-[2.5px] border-slate-800 rounded-[3px] flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 bg-slate-800 rounded-[1px]" />
+                      </div>
+                      <div className="absolute top-0 right-0 w-[20px] h-[20px] border-[2.5px] border-slate-800 rounded-[3px] flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 bg-slate-800 rounded-[1px]" />
+                      </div>
+                      <div className="absolute bottom-0 left-0 w-[20px] h-[20px] border-[2.5px] border-slate-800 rounded-[3px] flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 bg-slate-800 rounded-[1px]" />
                       </div>
                     </div>
-                    {/* Scanner scanning bar animation */}
-                    <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500 shadow-md shadow-emerald-500/50 animate-[pan-y_2s_infinite]" />
+                    
+                    {/* Scanner line animation */}
+                    <div 
+                      className="absolute left-0 right-0 h-[2px] bg-emerald-500 shadow-[0_0_12px_4px_rgba(16,185,129,0.6)] z-20 pointer-events-none" 
+                      style={{ animation: 'scan 2.5s linear infinite' }} 
+                    />
                   </div>
                 </div>
 
@@ -247,7 +288,7 @@ export default function Home() {
       </section>
 
       {/* 3. Interactive 3-Step Registration Section (Matching Reference layout) */}
-      <section id="steps" className="py-16 md:py-24 max-w-6xl mx-auto px-6 w-full space-y-12">
+      <section id="steps" className="py-16 md:py-24 max-w-[1400px] mx-auto px-6 w-full space-y-12">
         <div className="text-center space-y-3">
           <span className="text-xs font-black uppercase tracking-wider text-[var(--color-primary)]">Simple Integration</span>
           <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--color-on-surface)]">
@@ -297,7 +338,7 @@ export default function Home() {
                   Provide your email and details to register. Your passenger profile acts as the digital key for your wallet and dynamic token credentials.
                 </p>
                 <div className="h-px bg-[var(--color-outline-variant)]" />
-                <ul className="space-y-3 text-sm text-slate-300">
+                <ul className="space-y-3 text-sm text-muted">
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-indigo-400" />
                     <span>Access passenger and company dashboard panels</span>
@@ -311,27 +352,27 @@ export default function Home() {
 
               {/* Step 1 Right (Mock Input Form) */}
               <div className="md:col-span-5">
-                <div className="p-6 bg-slate-950/40 rounded-2xl border border-white/5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="p-6 bg-[var(--color-surface)] shadow-md rounded-2xl border border-[var(--color-outline-variant)] space-y-4">
+                  <div className="flex items-center justify-between border-b border-[var(--color-outline-variant)] pb-3">
                     <span className="text-xs font-bold text-[var(--color-on-surface)]">1st Step: Create Passenger</span>
                     <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded">Fast Setup</span>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Full Name</label>
                     <input 
                       type="text" 
                       value={mockName} 
                       onChange={(e) => setMockName(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-[var(--color-bg)] border border-[var(--color-outline-variant)] rounded-xl text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email Address</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Email Address</label>
                     <input 
                       type="email" 
                       value={mockEmail}
                       onChange={(e) => setMockEmail(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-[var(--color-bg)] border border-[var(--color-outline-variant)] rounded-xl text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                   <button onClick={() => setActiveStep(2)} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-teal-500 hover:opacity-90 text-white text-xs font-bold transition-all mt-2">
@@ -357,7 +398,7 @@ export default function Home() {
                   Add credits securely using Stripe Checkout or practice wallet adjustments immediately using our developmental Sandbox Credit override.
                 </p>
                 <div className="h-px bg-[var(--color-outline-variant)]" />
-                <ul className="space-y-3 text-sm text-slate-300">
+                <ul className="space-y-3 text-sm text-muted">
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-teal-400" />
                     <span>Secure Stripe webhook verification ledger mapping</span>
@@ -371,26 +412,26 @@ export default function Home() {
 
               {/* Step 2 Right (Mock Payment widget) */}
               <div className="md:col-span-5">
-                <div className="p-6 bg-slate-950/40 rounded-2xl border border-white/5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="p-6 bg-[var(--color-surface)] shadow-md rounded-2xl border border-[var(--color-outline-variant)] space-y-4">
+                  <div className="flex items-center justify-between border-b border-[var(--color-outline-variant)] pb-3">
                     <span className="text-xs font-bold text-[var(--color-on-surface)]">2nd Step: Fund Wallet</span>
                     <span className="text-[10px] text-teal-400 font-bold bg-teal-500/10 px-2 py-0.5 rounded">Credit Card</span>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Top Up Amount (LKR)</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Top Up Amount (LKR)</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs font-bold">LKR</span>
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-muted text-xs font-bold">LKR</span>
                       <input 
                         type="number" 
                         value={topUpAmount}
                         onChange={(e) => setTopUpAmount(e.target.value)}
-                        className="w-full pl-11 pr-3 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-teal-500"
+                        className="w-full pl-11 pr-3 py-2 bg-[var(--color-bg)] border border-[var(--color-outline-variant)] rounded-xl text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-teal-500"
                       />
                     </div>
                   </div>
-                  <div className="p-3 bg-white/5 rounded-xl text-[10px] text-slate-400 flex items-center justify-between">
+                  <div className="p-3 bg-[var(--color-surface-variant)] rounded-xl text-[10px] text-muted flex items-center justify-between">
                     <span>Account: {mockEmail}</span>
-                    <span className="font-bold text-white">LKR {topUpAmount || '0'}</span>
+                    <span className="font-bold text-[var(--color-on-surface)]">LKR {topUpAmount || '0'}</span>
                   </div>
                   <button onClick={() => setActiveStep(3)} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-teal-500 hover:opacity-90 text-white text-xs font-bold transition-all mt-2">
                     Proceed to Step 3
@@ -415,7 +456,7 @@ export default function Home() {
                   Tap your QR code token or NFC card at the bus entry device. The system checks your balance, boards you, and deducts fare automatically on tap-off.
                 </p>
                 <div className="h-px bg-[var(--color-outline-variant)]" />
-                <ul className="space-y-3 text-sm text-slate-300">
+                <ul className="space-y-3 text-sm text-muted">
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                     <span>Real-time Socket.io driver telemetry tracking</span>
@@ -429,8 +470,8 @@ export default function Home() {
 
               {/* Step 3 Right (Mock Scan Result Widget) */}
               <div className="md:col-span-5">
-                <div className="p-6 bg-slate-950/40 rounded-2xl border border-white/5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="p-6 bg-[var(--color-surface)] shadow-md rounded-2xl border border-[var(--color-outline-variant)] space-y-4">
+                  <div className="flex items-center justify-between border-b border-[var(--color-outline-variant)] pb-3">
                     <span className="text-xs font-bold text-[var(--color-on-surface)]">3rd Step: Tap Terminal</span>
                     <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">Validated</span>
                   </div>
@@ -439,11 +480,11 @@ export default function Home() {
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                     <div className="space-y-0.5">
-                      <h4 className="text-xs font-bold text-white">ACCESS GRANTED</h4>
-                      <p className="text-[10px] text-slate-400">Boarded Bus: WP-GA-9021</p>
+                      <h4 className="text-xs font-bold text-[var(--color-on-surface)]">ACCESS GRANTED</h4>
+                      <p className="text-[10px] text-muted">Boarded Bus: WP-GA-9021</p>
                     </div>
                   </div>
-                  <button onClick={() => setActiveStep(1)} className="w-full py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-[var(--color-on-surface)] text-xs font-bold transition-all">
+                  <button onClick={() => setActiveStep(1)} className="w-full py-2.5 rounded-xl border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] text-[var(--color-on-surface)] text-xs font-bold transition-all">
                     Restart Onboarding Demo
                   </button>
                 </div>
@@ -500,7 +541,7 @@ export default function Home() {
       </section>
 
       {/* 5. Production Ready Features List */}
-      <section id="features" className="py-16 md:py-24 max-w-6xl mx-auto px-6 w-full grid gap-12 md:grid-cols-12 items-center">
+      <section id="features" className="py-16 md:py-24 max-w-[1400px] mx-auto px-6 w-full grid gap-12 md:grid-cols-12 items-center">
         {/* Left Column Graphic */}
         <div className="md:col-span-5 flex justify-center">
           <div className="w-80 p-6 card bg-slate-950/30 shadow-2xl relative overflow-hidden flex flex-col gap-6">
@@ -571,9 +612,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 6. Footer */}
-      <footer className="mt-auto border-t border-[var(--color-outline-variant)] bg-[var(--color-surface)] py-12">
-        <div className="max-w-6xl mx-auto px-6 w-full flex flex-col md:flex-row justify-between items-center gap-6">
+      {/* Footer */}
+      <footer className="border-t border-[var(--color-outline-variant)] bg-[var(--color-surface)] py-12 mt-12">
+        <div className="max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="space-y-2 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-2.5">
               <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center text-white shadow">
@@ -590,8 +631,8 @@ export default function Home() {
             <Link href="#steps" className="hover:text-[var(--color-on-surface)] transition-colors">How It Works</Link>
             <Link href="#services" className="hover:text-[var(--color-on-surface)] transition-colors">Services</Link>
             <Link href="#features" className="hover:text-[var(--color-on-surface)] transition-colors">Security</Link>
-            <Link href="/passenger/login" className="hover:text-[var(--color-on-surface)] transition-colors">Passenger Panel</Link>
-            <Link href="/company/login" className="hover:text-[var(--color-on-surface)] transition-colors">Operator Panel</Link>
+            <Link href="/login" className="hover:text-[var(--color-on-surface)] transition-colors">Passenger Panel</Link>
+            <Link href="/login" className="hover:text-[var(--color-on-surface)] transition-colors">Operator Panel</Link>
           </div>
         </div>
       </footer>

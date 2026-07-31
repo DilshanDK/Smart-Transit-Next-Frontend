@@ -64,8 +64,52 @@ export default function WalletPage() {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectStatus = urlParams.get("redirect_status");
+      
+      if (redirectStatus === "succeeded") {
+        setSuccessMessage("Payment complete! Funds have been added to your wallet.");
+        setTimeout(() => setSuccessMessage(null), 8000);
+        window.history.replaceState(null, "", window.location.pathname);
+        
+        // Fetch immediately (in case webhook was super fast)
+        refreshProfile();
+        
+        // Poll for balance update because the background Stripe webhook can take several seconds
+        const currentBalanceStr = String((user as any)?.walletBalance?.$numberDecimal ?? (user as any)?.walletBalance ?? 0);
+        let attempts = 0;
+        const maxAttempts = 15; // 30 seconds max
+        
+        const pollTimer = setInterval(async () => {
+          attempts++;
+          try {
+            const res = await apiClient.get('/auth/me');
+            if (res.status === 200) {
+              const newBalanceStr = String(res.data.user?.walletBalance?.$numberDecimal ?? res.data.user?.walletBalance ?? 0);
+              if (newBalanceStr !== currentBalanceStr) {
+                // Balance updated by webhook!
+                refreshProfile();
+                fetchTransactions();
+                clearInterval(pollTimer);
+              }
+            }
+          } catch (e) {}
+          
+          if (attempts >= maxAttempts) {
+            clearInterval(pollTimer);
+            refreshProfile();
+            fetchTransactions();
+          }
+        }, 2000);
+      } else if (redirectStatus === "failed") {
+        setErrorMessage("Payment failed. Please try again.");
+        setTimeout(() => setErrorMessage(null), 8000);
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
     fetchTransactions();
-  }, []);
+  }, [refreshProfile]);
 
   const handlePresetSelect = (amount: number) => {
     setTopUpAmount(amount);
@@ -108,6 +152,11 @@ export default function WalletPage() {
 
   // Stripe Session Intent Initialization
   const handleStripeIntentInit = async () => {
+    if (topUpAmount < 500) {
+      setErrorMessage("Minimum top-up amount using card is LKR 500.00 due to Stripe limitations.");
+      return;
+    }
+
     setLoadingIntent(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -256,14 +305,14 @@ export default function WalletPage() {
             <div className="space-y-2">
               <label className="text-xs font-bold text-muted uppercase tracking-wider">Select Preset Amount</label>
               <div className="grid grid-cols-4 gap-3">
-                {[200, 500, 1000, 2000].map((amt) => (
+                {[500, 1000, 2000, 5000].map((amt) => (
                   <button
                     key={amt}
                     type="button"
                     onClick={() => handlePresetSelect(amt)}
                     className={`py-3 rounded-xl font-bold text-sm border transition-all cursor-pointer ${
                       topUpAmount === amt && !customAmount
-                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] bg-opacity-5 text-[var(--color-primary)]"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-sm"
                         : "border-[var(--color-outline-variant)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-variant)] text-[var(--color-on-surface)]"
                     }`}
                   >
@@ -282,8 +331,8 @@ export default function WalletPage() {
                 </div>
                 <input
                   type="number"
-                  min="50"
-                  placeholder="Minimum LKR 50.00"
+                  min="500"
+                  placeholder="Minimum LKR 500.00"
                   value={customAmount}
                   onChange={handleCustomAmountChange}
                   className="w-full pl-13 pr-4 py-3 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-[var(--color-on-surface)]"
@@ -291,17 +340,47 @@ export default function WalletPage() {
               </div>
             </div>
 
-            {/* Alerts */}
-            {successMessage && (
-              <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 flex gap-3 text-xs">
-                <CheckCircle2 className="h-4.5 w-4.5 shrink-0" />
-                <span>{successMessage}</span>
+            {/* Error Modal Popup */}
+            {errorMessage && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-[var(--color-surface)] w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col items-center text-center p-8 animate-in zoom-in-50 duration-300 ease-out">
+                  <div className="h-20 w-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 relative">
+                    <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping opacity-75" />
+                    <AlertCircle className="h-10 w-10 text-red-500 relative z-10" />
+                  </div>
+                  <h3 className="text-xl font-extrabold mb-2 text-[var(--color-on-surface)]">Payment Failed</h3>
+                  <p className="text-sm text-muted font-medium mb-8 leading-relaxed">
+                    {errorMessage}
+                  </p>
+                  <button
+                    onClick={() => setErrorMessage(null)}
+                    className="w-full btn-primary py-3.5 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition-colors border-none"
+                  >
+                    Try Again
+                  </button>
+                </div>
               </div>
             )}
-            {errorMessage && (
-              <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 flex gap-3 text-xs">
-                <AlertCircle className="h-4.5 w-4.5 shrink-0" />
-                <span>{errorMessage}</span>
+
+            {/* Success Modal Popup */}
+            {successMessage && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-[var(--color-surface)] w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col items-center text-center p-8 animate-in zoom-in-50 duration-300 ease-out">
+                  <div className="h-20 w-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 relative">
+                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-75" />
+                    <CheckCircle2 className="h-10 w-10 text-emerald-500 relative z-10" />
+                  </div>
+                  <h3 className="text-xl font-extrabold mb-2 text-[var(--color-on-surface)]">Payment Successful!</h3>
+                  <p className="text-sm text-muted font-medium mb-8 leading-relaxed">
+                    {successMessage}
+                  </p>
+                  <button
+                    onClick={() => setSuccessMessage(null)}
+                    className="w-full btn-primary py-3.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white transition-colors border-none"
+                  >
+                    Awesome
+                  </button>
+                </div>
               </div>
             )}
 
@@ -329,27 +408,68 @@ export default function WalletPage() {
               </button>
             )}
 
-            {/* Stripe Card Element View */}
+            {/* Stripe Card Element Modal View */}
             {clientSecret && !isSandbox && (
-              <div className="border-t border-[var(--color-outline-variant)] pt-6 space-y-4">
-                <h4 className="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
-                  <Info className="h-3.5 w-3.5 text-[var(--color-primary)]" />
-                  Stripe Secure Checkout
-                </h4>
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <StripeCheckoutForm
-                    clientSecret={clientSecret}
-                    amount={topUpAmount}
-                    onSuccess={async () => {
-                      setSuccessMessage(`Payment complete! LKR ${topUpAmount.toFixed(2)} added successfully.`);
-                      setClientSecret(null);
-                      await refreshProfile();
-                      await fetchTransactions();
-                      setTimeout(() => setSuccessMessage(null), 5000);
-                    }}
-                    onCancel={() => setClientSecret(null)}
-                  />
-                </Elements>
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-[var(--color-surface)] w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+                  <div className="bg-[var(--color-surface-variant)] px-6 py-4 border-b border-[var(--color-outline-variant)] flex items-center justify-between shrink-0">
+                    <h4 className="font-bold flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-[var(--color-primary)]" />
+                      Secure Checkout
+                    </h4>
+                    <button 
+                      onClick={() => setClientSecret(null)} 
+                      className="h-8 w-8 rounded-full bg-[var(--color-outline-variant)]/50 hover:bg-[var(--color-outline-variant)] flex items-center justify-center text-muted hover:text-foreground transition-colors shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="p-6 overflow-y-auto">
+                    <Elements stripe={stripePromise} options={{ clientSecret }}>
+                      <StripeCheckoutForm
+                        clientSecret={clientSecret}
+                        amount={topUpAmount}
+                        onSuccess={async () => {
+                          setSuccessMessage(`Payment complete! LKR ${topUpAmount.toFixed(2)} added successfully.`);
+                          setClientSecret(null);
+                          
+                          // Poll for balance update because the background Stripe webhook can take several seconds
+                          const currentBalanceStr = String((user as any)?.walletBalance?.$numberDecimal ?? (user as any)?.walletBalance ?? 0);
+                          let attempts = 0;
+                          const maxAttempts = 15; // 30 seconds max
+                          
+                          // Fetch immediately just in case
+                          await refreshProfile();
+                          
+                          const pollTimer = setInterval(async () => {
+                            attempts++;
+                            try {
+                              const res = await apiClient.get('/auth/me');
+                              if (res.status === 200) {
+                                const newBalanceStr = String(res.data.user?.walletBalance?.$numberDecimal ?? res.data.user?.walletBalance ?? 0);
+                                if (newBalanceStr !== currentBalanceStr) {
+                                  // Balance updated by webhook!
+                                  await refreshProfile();
+                                  await fetchTransactions();
+                                  clearInterval(pollTimer);
+                                }
+                              }
+                            } catch (e) {}
+                            
+                            if (attempts >= maxAttempts) {
+                              clearInterval(pollTimer);
+                              await refreshProfile();
+                              await fetchTransactions();
+                            }
+                          }, 2000);
+                          
+                          setTimeout(() => setSuccessMessage(null), 5000);
+                        }}
+                        onCancel={() => setClientSecret(null)}
+                      />
+                    </Elements>
+                  </div>
+                </div>
               </div>
             )}
           </div>

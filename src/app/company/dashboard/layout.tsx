@@ -21,16 +21,19 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import ThemeToggle from "../../components/theme-toggle";
+import ConfirmModal from "../../components/confirm-modal";
 
 export default function CompanyDashboardLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
-  const { user, role, logout, loading } = useAuth();
+  const { user, role, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [localTime, setLocalTime] = useState("");
 
   // Update live clock
@@ -76,10 +79,9 @@ export default function CompanyDashboardLayout({
   ];
 
   const handleLogout = async () => {
-    if (confirm("Are you sure you want to end your session?")) {
-      await logout();
-      router.push("/company/login");
-    }
+    setIsLoggingOut(true);
+    await logout();
+    router.push("/login");
   };
 
   const getPageTitle = () => {
@@ -209,7 +211,7 @@ export default function CompanyDashboardLayout({
                 </div>
 
                 <button
-                  onClick={handleLogout}
+                  onClick={() => setIsLogoutModalOpen(true)}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-500 hover:bg-red-500/5 hover:text-red-600 transition-all font-bold text-xs mt-2 cursor-pointer border border-transparent hover:border-red-500/10"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -253,6 +255,16 @@ export default function CompanyDashboardLayout({
         </main>
       </div>
 
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        title="End Session"
+        message="Are you sure you want to log out of your ops console?"
+        confirmText="Log Out"
+        isDangerous={true}
+        isLoading={isLoggingOut}
+        onConfirm={handleLogout}
+        onCancel={() => setIsLogoutModalOpen(false)}
+      />
     </div>
   );
 }

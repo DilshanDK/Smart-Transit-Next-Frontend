@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  smarttransit-frontend:
+    image: ${FRONTEND_IMAGE}
+    container_name: smarttransit_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    networks:
+      - smarttransit-network
+
+networks:
+  smarttransit-network:
+    external: true

@@ -28,8 +28,16 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Handle network connection errors globally
+    if (error.code === 'ERR_NETWORK') {
+      error.response = {
+        data: { message: 'Backend connection failed. Please ensure the server is running.' },
+        status: 503,
+      };
+    }
+
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       if (typeof window !== 'undefined') {
         const refreshToken = Cookies.get('transit_refresh_token');
@@ -62,11 +70,8 @@ apiClient.interceptors.response.use(
           } catch (refreshError) {
             Cookies.remove('transit_token');
             Cookies.remove('transit_refresh_token');
-            const path = window.location.pathname;
-            if (path.startsWith('/company')) {
-              window.location.href = '/company/login';
-            } else {
-              window.location.href = '/passenger/login';
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
             }
           }
         }
