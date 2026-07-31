@@ -2,8 +2,16 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* ═══════════════════════════════════════════════════════════════
+   SmartTransit Brand Color System — Aligned with Flutter Apps
+   Primary: #28A745 (brand green — same as mobile passenger & driver)
+   Dark BG: #121212 · Surface: #1C1C1E · Surface Variant: #2C2C2E
+═══════════════════════════════════════════════════════════════ */
+
 :root {
-  --color-primary: #6366f1;
+  --color-primary: #28A745;
+  --color-primary-dark: #1B8C3A;
+  --color-primary-light: #4CAF50;
   --color-on-primary: #ffffff;
   --color-bg: #f5f7fa;
   --color-surface: #ffffff;
@@ -20,30 +28,34 @@
 }
 
 :root[data-theme="dark"] {
-  --color-primary: #818cf8;
+  --color-primary: #28A745;
+  --color-primary-dark: #1B8C3A;
+  --color-primary-light: #4CAF50;
   --color-on-primary: #ffffff;
-  --color-bg: #080b11;
-  --color-surface: rgba(17, 24, 39, 0.65);
-  --color-surface-variant: rgba(255, 255, 255, 0.03);
-  --color-on-surface: #f3f4f6;
+  --color-bg: #121212;
+  --color-surface: #1C1C1E;
+  --color-surface-variant: #2C2C2E;
+  --color-on-surface: #F0F0F5;
   --color-secondary: #9ca3af;
   --color-outline: rgba(255, 255, 255, 0.15);
   --color-outline-variant: rgba(255, 255, 255, 0.08);
-  --shadow-card: 0 10px 40px 10px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 10px 40px 10px rgba(0, 0, 0, 0.4);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --color-primary: #818cf8;
+    --color-primary: #28A745;
+    --color-primary-dark: #1B8C3A;
+    --color-primary-light: #4CAF50;
     --color-on-primary: #ffffff;
-    --color-bg: #080b11;
-    --color-surface: rgba(17, 24, 39, 0.65);
-    --color-surface-variant: rgba(255, 255, 255, 0.03);
-    --color-on-surface: #f3f4f6;
+    --color-bg: #121212;
+    --color-surface: #1C1C1E;
+    --color-surface-variant: #2C2C2E;
+    --color-on-surface: #F0F0F5;
     --color-secondary: #9ca3af;
     --color-outline: rgba(255, 255, 255, 0.15);
     --color-outline-variant: rgba(255, 255, 255, 0.08);
-    --shadow-card: 0 10px 40px 10px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 10px 40px 10px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -53,6 +65,21 @@
   --font-sans: var(--font-inter);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
+
+  /* ── Remap Tailwind "indigo" → SmartTransit brand green ──
+     All indigo-* Tailwind classes now render in green shades,
+     aligning the web with the Flutter mobile app palette.   */
+  --color-indigo-50:  #f0fdf4;
+  --color-indigo-100: #dcfce7;
+  --color-indigo-200: #bbf7d0;
+  --color-indigo-300: #86efac;
+  --color-indigo-400: #4ade80;
+  --color-indigo-500: #28A745;
+  --color-indigo-600: #1B8C3A;
+  --color-indigo-700: #15803d;
+  --color-indigo-800: #166534;
+  --color-indigo-900: #14532d;
+  --color-indigo-950: #052e16;
 }
 
 body {

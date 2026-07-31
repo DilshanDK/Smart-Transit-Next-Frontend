@@ -77,7 +77,7 @@ export default function JourneyDetailPage() {
       try {
         setLoading(true);
         const token = Cookies.get("transit_token");
-        if (!token) { router.push("/passenger/login"); return; }
+        if (!token) { router.push("/login"); return; }
 
         // Fetch all and find by ID (backend doesn't expose single-journey endpoint yet)
         const res = await apiClient.get("/journey/passenger/history");

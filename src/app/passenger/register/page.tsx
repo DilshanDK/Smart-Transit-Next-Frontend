@@ -189,8 +189,8 @@ export default function PassengerRegister() {
         <div className="mt-6 pt-5 border-t border-[var(--color-outline-variant)] text-center space-y-4">
           <p className="text-xs text-muted">
             Already have an account?{' '}
-            <Link href="/passenger/login" className="text-[var(--color-primary)] font-semibold hover:underline">
-              Sign In
+            <Link href="/login" className="text-[var(--color-primary)] font-semibold hover:underline">
+              Log In
             </Link>
           </p>
           

@@ -64,11 +64,9 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 4. Redirect root to unified login if no token, else their dashboard
+  // 4. Redirect root to their dashboard if logged in, else allow landing page
   if (pathname === '/') {
-    if (!token || !role) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    } else {
+    if (token && role) {
       if (role === 'passenger') {
         return NextResponse.redirect(new URL('/passenger/dashboard', request.url));
       }
