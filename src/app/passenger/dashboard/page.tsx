@@ -155,7 +155,7 @@ export default function PassengerDashboardOverview() {
           <div className="my-2 relative z-10">
             <p className="text-xs text-white text-opacity-80 uppercase tracking-widest font-bold">Available Balance</p>
             <p className="text-3xl md:text-4xl font-extrabold tracking-tight mt-1">
-              LKR {user?.walletBalance !== undefined ? user.walletBalance.toFixed(2) : '0.00'}
+              LKR {user?.walletBalance !== undefined ? parseFloat(String((user as any).walletBalance?.$numberDecimal ?? (user as any).walletBalance ?? 0)).toFixed(2) : '0.00'}
             </p>
           </div>
 
@@ -191,7 +191,7 @@ export default function PassengerDashboardOverview() {
                 LKR{' '}
                 {recentJourneys
                   .filter((j) => j.status === 'COMPLETED')
-                  .reduce((acc, j) => acc + parseFloat(j.fareCalculated?.toString() || '0'), 0)
+                  .reduce((acc, j) => acc + parseFloat(j.fareCalculated?.$numberDecimal || j.fareCalculated?.toString() || '0'), 0)
                   .toFixed(2)}
               </p>
             </div>
@@ -261,7 +261,7 @@ export default function PassengerDashboardOverview() {
                     {getStatusBadge(journey.status)}
                     {journey.fareCalculated && (
                       <span className="text-sm font-extrabold text-[var(--color-on-surface)]">
-                        - LKR {parseFloat(journey.fareCalculated.toString()).toFixed(2)}
+                        - LKR {parseFloat(journey.fareCalculated?.$numberDecimal || journey.fareCalculated.toString()).toFixed(2)}
                       </span>
                     )}
                   </div>

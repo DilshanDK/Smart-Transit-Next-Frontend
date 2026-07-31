@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/core/context/AuthContext';
-import { LayoutDashboard, History, Wallet, User, LogOut, Menu, X, Bus } from 'lucide-react';
+import { LayoutDashboard, History, Wallet, User, LogOut, Menu, X, Bus, Bell, Clock, Compass, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ThemeToggle from '../../components/theme-toggle';
+import ConfirmModal from '../../components/confirm-modal';
 
 export default function PassengerDashboardLayout({
   children,
@@ -14,14 +15,29 @@ export default function PassengerDashboardLayout({
 }) {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [localTime, setLocalTime] = useState('');
+
+  // Update live clock
+  useEffect(() => {
+    const updateTime = () => {
+      const date = new Date();
+      setLocalTime(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (loading) {
     return (
-      <div className="app-shell min-h-screen flex items-center justify-center">
+      <div className="app-shell min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[var(--color-primary)] bg-opacity-15 flex items-center justify-center animate-spin">
-            <Bus className="h-5 w-5 text-[var(--color-primary)]" />
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center animate-spin shadow-lg">
+            <Bus className="h-5 w-5 text-white" />
           </div>
           <span className="text-sm text-muted font-medium">Synchronizing profile...</span>
         </div>
@@ -37,61 +53,58 @@ export default function PassengerDashboardLayout({
   ];
 
   const handleLogout = async () => {
-    if (confirm('Are you sure you want to end your session?')) {
-      await logout();
-    }
+    setIsLoggingOut(true);
+    await logout();
+    router.push('/login');
+  };
+
+  const getPageTitle = () => {
+    const active = navItems.find((n) => pathname === n.href);
+    return active ? active.label : 'Dashboard';
   };
 
   return (
-    <div className="app-shell min-h-screen flex flex-col md:flex-row">
+    <div className="app-shell min-h-screen flex flex-col md:flex-row bg-[var(--color-bg)]">
+      
       {/* Mobile Top Bar */}
       <header className="md:hidden border-b border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-6 py-4 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
-          <span className="brand-dot" />
-          <span className="font-bold text-sm tracking-wide">TransitFlow</span>
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center shadow">
+            <Bus className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-extrabold text-sm tracking-tight text-[var(--color-on-surface)] bg-gradient-to-r from-indigo-400 to-teal-400 bg-clip-text text-transparent">
+            TransitFlow
+          </span>
         </div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-muted hover:text-[var(--color-on-surface)] transition-colors">
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-muted hover:text-[var(--color-on-surface)] transition-colors focus:outline-none">
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </header>
 
-      {/* Sidebar (Desktop) */}
+      {/* Sidebar (Desktop - Matching design template structure) */}
       <aside className={`md:flex flex-col w-full md:w-64 border-r border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-4 py-6 sticky top-0 h-screen z-30 transition-transform duration-300 md:translate-x-0 ${
         mobileMenuOpen ? 'block fixed inset-0 top-[60px] h-[calc(100vh-60px)]' : 'hidden'
       }`}>
-        {/* Brand */}
+        
+        {/* Brand/Logo header */}
         <div className="hidden md:flex items-center gap-3 px-3 mb-8">
-          <div className="h-9 w-9 rounded-xl bg-[var(--color-primary)] flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center shadow-lg shadow-indigo-500/10">
             <Bus className="h-4.5 w-4.5 text-white" />
           </div>
           <div>
-            <p className="text-xs text-muted font-bold tracking-widest uppercase">Smart Transit</p>
-            <h1 className="text-base font-bold tracking-tight text-[var(--color-on-surface)]">Passenger</h1>
+            <span className="font-black text-sm tracking-tight text-[var(--color-on-surface)] bg-gradient-to-r from-indigo-400 to-teal-400 bg-clip-text text-transparent">
+              TransitFlow
+            </span>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Commuter Suite</p>
           </div>
         </div>
 
-        {/* User Card */}
-        {user && (
-          <div className="surface-variant p-4 mb-6 flex flex-col gap-2">
-            <p className="text-xs text-muted font-semibold tracking-wide uppercase">Active Account</p>
-            <div>
-              <p className="font-bold text-sm truncate">{user.fullName}</p>
-              <p className="text-xs text-muted truncate mt-0.5">{user.email}</p>
-            </div>
-            {user.walletBalance !== undefined && (
-              <div className="mt-2 pt-2 border-t border-[var(--color-outline-variant)] flex items-center justify-between">
-                <span className="text-xs text-muted">Wallet Balance:</span>
-                <span className="text-xs font-bold text-[var(--color-primary)]">LKR {user.walletBalance.toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1 space-y-1.5">
+        {/* Navigation Section */}
+        <nav className="flex-1 space-y-1.5 px-1">
+          <span className="text-[10px] text-muted font-bold tracking-wider uppercase block px-3 mb-3">Menu</span>
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -100,36 +113,111 @@ export default function PassengerDashboardLayout({
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`nav-item ${isActive ? 'active' : ''}`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all duration-200 border border-transparent ${
+                  isActive 
+                    ? 'bg-gradient-to-tr from-indigo-500/10 to-teal-500/10 text-indigo-400 border-indigo-500/20 shadow-sm' 
+                    : 'text-muted hover:text-[var(--color-on-surface)] hover:bg-[var(--color-surface-variant)]'
+                }`}
               >
-                <Icon className="h-4.5 w-4.5" />
-                <span className="text-sm font-semibold">{item.label}</span>
+                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Footer controls */}
-        <div className="pt-4 border-t border-[var(--color-outline-variant)] space-y-3">
-          <div className="hidden md:flex items-center justify-between px-3">
-            <span className="text-xs text-muted">Dark Mode</span>
-            <ThemeToggle />
+        {/* Sidebar Footer (Avatar, notification, toggle buttons matching PrimeCruise/Fedex structure) */}
+        <div className="pt-4 border-t border-[var(--color-outline-variant)] flex flex-col gap-4">
+          <div className="flex items-center justify-between px-2">
+            {/* Notification trigger */}
+            <button className="relative p-2.5 rounded-xl bg-[var(--color-surface-variant)] border border-[var(--color-outline-variant)] text-muted hover:text-[var(--color-on-surface)] transition-all cursor-pointer">
+              <Bell className="h-4.5 w-4.5" />
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+            </button>
+
+            {/* Live Clock / Theme Toggle capsule */}
+            <div className="flex items-center gap-1.5">
+              <ThemeToggle />
+            </div>
           </div>
-          
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-500/5 hover:text-red-600 transition-all font-semibold text-sm cursor-pointer"
-          >
-            <LogOut className="h-4.5 w-4.5" />
-            <span>End Session</span>
-          </button>
+
+          {/* User Account Capsule */}
+          {user && (
+            <div className="flex items-center gap-3 p-2 bg-[var(--color-surface-variant)] border border-[var(--color-outline-variant)] rounded-2xl relative group">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center text-white text-xs font-black shadow-md shrink-0">
+                {user.fullName ? user.fullName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : 'US'}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-xs font-black text-[var(--color-on-surface)] truncate">{user.fullName}</p>
+                <p className="text-[9px] text-slate-400 truncate mt-0.5">{user.email}</p>
+              </div>
+              
+              {/* Dropdown overlay menu */}
+              <div className="absolute left-0 bottom-14 w-52 card p-3 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all shadow-2xl z-50 bg-[var(--color-surface)] border border-[var(--color-outline-variant)]">
+                <p className="font-extrabold text-xs text-[var(--color-on-surface)] border-b border-[var(--color-outline-variant)] pb-2 mb-2">{user.fullName}</p>
+                {user.walletBalance !== undefined && (
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <span className="text-slate-400">Balance:</span>
+                    <span className="font-extrabold text-indigo-400">LKR {parseFloat(String((user as any).walletBalance?.$numberDecimal ?? (user as any).walletBalance ?? 0)).toFixed(2)}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => setIsLogoutModalOpen(true)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-500 hover:bg-red-500/5 hover:text-red-600 transition-all font-bold text-xs mt-2 cursor-pointer border border-transparent hover:border-red-500/10"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 lg:p-10 max-w-6xl mx-auto w-full overflow-y-auto">
-        {children}
-      </main>
+      {/* Main View Container */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        {/* Top Header Bar (Desktop only) */}
+        <header className="hidden md:flex items-center justify-between px-8 py-5 bg-[var(--color-surface)] bg-opacity-40 backdrop-blur-md border-b border-[var(--color-outline-variant)]">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Workspace</span>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-sm font-black text-[var(--color-on-surface)]">{getPageTitle()}</span>
+          </div>
+
+          <div className="flex items-center gap-6">
+            {/* Live Clock */}
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 bg-[var(--color-surface-variant)] px-3 py-1.5 rounded-xl border border-[var(--color-outline-variant)]">
+              <Clock className="h-3.5 w-3.5" />
+              <span>{localTime || '--:--'}</span>
+            </div>
+
+            {/* Quick Status */}
+            {user?.walletBalance !== undefined && (
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/5 px-3.5 py-1.5 rounded-xl border border-emerald-500/10 shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Wallet Active: LKR {parseFloat(String((user as any).walletBalance?.$numberDecimal ?? (user as any).walletBalance ?? 0)).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Scrollable Viewport */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10 max-w-6xl w-full mx-auto">
+          {children}
+        </main>
+      </div>
+
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        title="End Session"
+        message="Are you sure you want to log out of your dashboard?"
+        confirmText="Log Out"
+        isDangerous={true}
+        isLoading={isLoggingOut}
+        onConfirm={handleLogout}
+        onCancel={() => setIsLogoutModalOpen(false)}
+      />
     </div>
   );
 }

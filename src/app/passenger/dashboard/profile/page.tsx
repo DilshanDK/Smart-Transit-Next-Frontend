@@ -307,7 +307,7 @@ export default function ProfilePage() {
             </p>
             <div className="pt-2">
               <div className="text-2xl font-black text-[var(--color-primary)]">
-                LKR {user?.walletBalance !== undefined ? user.walletBalance.toFixed(2) : "0.00"}
+                LKR {user?.walletBalance !== undefined ? parseFloat(String((user as any).walletBalance?.$numberDecimal ?? (user as any).walletBalance ?? 0)).toFixed(2) : "0.00"}
               </div>
               <span className="text-[9px] font-bold text-muted uppercase tracking-wider block mt-1">
                 Available Credits

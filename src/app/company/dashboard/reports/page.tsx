@@ -48,31 +48,26 @@ export default function CompanyReportsPage() {
     fetchReports();
   }, []);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     setExporting(true);
     try {
-      // Simulate formatting report data into CSV
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Route ID,Total Trips,Total Net Revenue (LKR)\n";
-      
-      routeData.forEach((item) => {
-        csvContent += `${item.routeId},${item.trips},${item.revenue.toFixed(2)}\n`;
+      const res = await apiClient.get("/company/reports/export", {
+        params: {
+          from: startDate,
+          to: endDate,
+        },
+        responseType: "blob",
       });
 
-      // Generate mock completed transactions for download
-      csvContent += "\n--- Completed Shift Journals ---\n";
-      csvContent += "Date,Bus Registration,Driver ID,Route ID,Fare (LKR),Status\n";
-      csvContent += `2026-05-20,WP-4389,driver_001,Route 138,450.00,COMPLETED\n`;
-      csvContent += `2026-05-20,WP-4389,driver_001,Route 138,320.00,COMPLETED\n`;
-      csvContent += `2026-05-21,WP-5423,driver_002,Route 120,680.00,COMPLETED\n`;
-
-      const encodedUri = encodeURI(csvContent);
+      const blob = new Blob([res.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
+      link.href = url;
       link.setAttribute("download", `transit_earnings_${startDate}_to_${endDate}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Failed to generate CSV download", err);
     } finally {
