@@ -111,11 +111,11 @@ export default function Home() {
       </header>
 
       {/* 2. Hero Section (Dynamic Refactored Layout) */}
-      <section className="relative overflow-hidden border-b border-[var(--color-outline-variant)] bg-linear-to-b from-[var(--color-surface)] to-[var(--color-bg)] pt-16 pb-12 md:pt-24 md:pb-20 lg:pt-32 lg:pb-28">
+      <section className="relative overflow-hidden border-b border-[var(--color-outline-variant)] bg-gradient-to-tr from-[var(--color-surface)] via-[var(--color-primary)]/5 to-[var(--color-bg)] dark:bg-none dark:bg-transparent animate-gradient-shift pt-10 pb-12 md:pt-16 md:pb-20 lg:pt-20 lg:pb-28">
         
         {/* Glow ambient backdrops */}
-        <div className="absolute top-[10%] left-[-10%] w-[35%] h-[35%] rounded-full bg-indigo-500/10 blur-[130px] pointer-events-none" />
-        <div className="absolute bottom-[5%] right-[-10%] w-[35%] h-[35%] rounded-full bg-teal-500/10 blur-[130px] pointer-events-none" />
+        <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/15 dark:hidden blur-[130px] pointer-events-none animate-float-glow-1" />
+        <div className="absolute bottom-[5%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/15 dark:hidden blur-[130px] pointer-events-none animate-float-glow-2" />
         
         <div className="max-w-[1400px] mx-auto px-6 grid gap-8 lg:gap-16 lg:grid-cols-12 items-center relative z-10">
           

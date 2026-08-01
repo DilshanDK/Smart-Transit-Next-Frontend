@@ -1,9 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
 import { apiClient } from '../lib/api-client';
 import { useRouter } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
 
 interface UserProfile {
   id: string;
@@ -33,6 +34,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<'passenger' | 'driver' | 'company' | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const socketRef = useRef<Socket | null>(null);
+
+  // ── Connect to notifications WebSocket ──────────────────────────────────
+  const connectNotificationsSocket = (token: string) => {
+    // Tear down any existing socket first
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const socket = io(`${API_BASE}/notifications`, {
+      transports: ['websocket'],
+      auth: { token },
+    });
+
+    socket.on('connect', () => {
+      console.log('[WS] Connected to /notifications');
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('[WS] Connection error for /notifications namespace:', err.message);
+    });
+
+    socket.on('error', (err) => {
+      console.error('[WS] General socket error:', err);
+    });
+
+    // Real-time wallet balance update from backend
+    socket.on('wallet_updated', (data: { balance: number | string | { $numberDecimal: string } }) => {
+      let newBalance: number;
+      if (typeof data.balance === 'number') {
+        newBalance = data.balance;
+      } else if (typeof data.balance === 'string') {
+        newBalance = parseFloat(data.balance);
+      } else if (data.balance && typeof data.balance === 'object' && '$numberDecimal' in data.balance) {
+        newBalance = parseFloat(data.balance.$numberDecimal);
+      } else {
+        console.warn('[WS] Received wallet_updated with unparseable balance:', data);
+        return;
+      }
+      console.log('[WS] wallet_updated → new balance:', newBalance);
+      setUser((prev) => prev ? { ...prev, walletBalance: newBalance } : prev);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('[WS] Disconnected from /notifications');
+    });
+
+    socketRef.current = socket;
+  };
+
+  const disconnectNotificationsSocket = () => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const loadUserFromToken = async () => {
     const token = Cookies.get('transit_token');
@@ -48,6 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.status === 200) {
         setUser(response.data.user);
         setRole(response.data.role);
+        // Connect WebSocket for real-time updates
+        connectNotificationsSocket(token);
       } else {
         throw new Error('Failed to fetch user info');
       }
@@ -57,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       Cookies.remove('transit_refresh_token');
       setUser(null);
       setRole(null);
+      disconnectNotificationsSocket();
     } finally {
       setLoading(false);
     }
@@ -64,6 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadUserFromToken();
+    // Cleanup socket on unmount
+    return () => disconnectNotificationsSocket();
   }, []);
 
   const login = async (email: string, password: string): Promise<'passenger' | 'company' | 'driver'> => {
@@ -81,6 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (profileRes.status === 200) {
           setUser(profileRes.data.user);
         }
+
+        // Connect WebSocket after login
+        connectNotificationsSocket(accessToken);
         
         return userRole;
       }
@@ -106,6 +174,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (profileRes.status === 200) {
           setUser(profileRes.data.user);
         }
+
+        connectNotificationsSocket(accessToken);
         
         return userRole as 'passenger' | 'company';
       }
@@ -131,6 +201,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (profileRes.status === 200) {
           setUser(profileRes.data.user);
         }
+
+        connectNotificationsSocket(accessToken);
         
         return userRole as 'passenger' | 'company' | 'driver';
       }
@@ -153,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore network errors on logout to ensure user always gets logged out locally
     } finally {
+      disconnectNotificationsSocket();
       Cookies.remove('transit_token');
       Cookies.remove('transit_refresh_token');
       setUser(null);

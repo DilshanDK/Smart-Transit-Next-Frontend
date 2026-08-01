@@ -114,18 +114,18 @@ export default function UnifiedLoginView() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-12 bg-[var(--color-background)]">
+    <div className="min-h-screen grid lg:grid-cols-12 bg-[var(--color-bg-gradient)] bg-[length:400%_400%] animate-gradient-shift relative">
       {/* Left Column - Graphic/Branding - 5 cols */}
-      <div className="hidden lg:flex lg:col-span-5 relative overflow-hidden bg-gradient-to-br from-neutral-900 to-indigo-950 text-white flex-col justify-between p-12 select-none border-r border-[var(--color-outline-variant)]">
+      <div className="hidden lg:flex lg:col-span-5 relative overflow-hidden bg-[#0a0d14] text-white flex-col justify-between p-12 select-none">
         {/* Animated background lights */}
         <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-[var(--color-primary)]/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
 
-        <Link href="/" className="flex items-center gap-3 relative z-10">
+        <Link href="/" className="flex items-center gap-3 relative z-10 text-white">
           <div className="h-9 w-9 rounded-xl bg-indigo-500 flex items-center justify-center">
             <Building2 className="h-5 w-5 text-white" />
           </div>
-          <span className="font-extrabold text-lg tracking-tight">Smart Transit</span>
+          <span className="font-extrabold text-lg tracking-tight text-white">Smart Transit</span>
         </Link>
 
         <div className="space-y-6 relative z-10">
@@ -133,7 +133,7 @@ export default function UnifiedLoginView() {
             <ShieldCheck className="h-3.5 w-3.5" />
             Unified Transit Gateway
           </div>
-          <h2 className="text-4xl font-extrabold tracking-tight leading-tight">
+          <h2 className="text-4xl font-extrabold tracking-tight leading-tight text-white">
             One Portal. Smart Commutes.
           </h2>
           <p className="text-sm text-neutral-400 leading-relaxed max-w-sm">
@@ -147,7 +147,7 @@ export default function UnifiedLoginView() {
       </div>
 
       {/* Right Column - Login Form - 7 cols */}
-      <div className="lg:col-span-7 flex flex-col justify-center px-6 py-12 md:px-16 lg:px-24 relative">
+      <div className="lg:col-span-7 flex flex-col justify-center px-6 py-12 md:px-16 lg:px-24 relative bg-transparent">
         <div className="absolute top-6 right-6 z-20">
           <ThemeToggle />
         </div>
@@ -255,8 +255,6 @@ export default function UnifiedLoginView() {
               </button>
             </div>
           </form>
-
-
 
           <div className="pt-4 border-t border-[var(--color-outline-variant)] text-center space-y-4">
             <p className="text-xs text-muted">

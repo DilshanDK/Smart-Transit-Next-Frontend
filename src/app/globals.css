@@ -14,6 +14,7 @@
   --color-primary-light: #4CAF50;
   --color-on-primary: #ffffff;
   --color-bg: #f5f7fa;
+  --color-bg-gradient: linear-gradient(-45deg, #f5f7fa, #e2f3e5, #f5f7fa, #dbf0df);
   --color-surface: #ffffff;
   --color-surface-variant: #f1f3f7;
   --color-on-surface: #0f172a;
@@ -33,6 +34,7 @@
   --color-primary-light: #4CAF50;
   --color-on-primary: #ffffff;
   --color-bg: #121212;
+  --color-bg-gradient: linear-gradient(-45deg, #121212, #142a19, #121212, #0f2214);
   --color-surface: #1C1C1E;
   --color-surface-variant: #2C2C2E;
   --color-on-surface: #F0F0F5;
@@ -49,6 +51,7 @@
     --color-primary-light: #4CAF50;
     --color-on-primary: #ffffff;
     --color-bg: #121212;
+    --color-bg-gradient: linear-gradient(-45deg, #121212, #142a19, #121212, #0f2214);
     --color-surface: #1C1C1E;
     --color-surface-variant: #2C2C2E;
     --color-on-surface: #F0F0F5;
@@ -83,13 +86,16 @@
 }
 
 body {
-  background: var(--color-bg);
+  background: var(--color-bg-gradient);
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+  background-attachment: fixed;
   color: var(--color-on-surface);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
 .app-shell {
-  background: var(--color-bg);
+  background: transparent;
   color: var(--color-on-surface);
 }
 
@@ -196,5 +202,36 @@ body {
 }
 :root:not([data-theme="dark"]) .dark-theme-hide {
   display: block !important;
+}
+
+/* ── Premium Background & Ambient Blur Animations ── */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float-glow-1 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.15); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes float-glow-2 {
+  0%, 100% { transform: translate(0px, 0px) scale(1.1); }
+  50% { transform: translate(-40px, 40px) scale(0.9); }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 12s ease infinite;
+}
+
+.animate-float-glow-1 {
+  animation: float-glow-1 15s ease-in-out infinite;
+}
+
+.animate-float-glow-2 {
+  animation: float-glow-2 20s ease-in-out infinite;
 }
 
