@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
-import { apiClient } from '../lib/api-client';
+import { apiClient, getApiBaseUrl } from '../lib/api-client';
 import { useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       socketRef.current = null;
     }
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const API_BASE = getApiBaseUrl();
     const socket = io(`${API_BASE}/notifications`, {
       transports: ['websocket'],
       auth: { token },
@@ -113,13 +113,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         throw new Error('Failed to fetch user info');
       }
-    } catch (error) {
-      // Clear token since it's invalid or expired and refresh failed
-      Cookies.remove('transit_token');
-      Cookies.remove('transit_refresh_token');
-      setUser(null);
-      setRole(null);
-      disconnectNotificationsSocket();
+    } catch (error: any) {
+      const status = error?.response?.status;
+
+      if (status === 401 || status === 403) {
+        // Token is genuinely invalid or expired — clear session and force re-login
+        Cookies.remove('transit_token');
+        Cookies.remove('transit_refresh_token');
+        setUser(null);
+        setRole(null);
+        disconnectNotificationsSocket();
+      } else {
+        // Network error, backend restarting (5xx / ERR_NETWORK / timeout) —
+        // DO NOT wipe the session. The token may still be valid once the server
+        // recovers. Keep the existing cookies and stay on the current page.
+        console.warn('[Auth] Session check failed due to network/server error — keeping session.', status ?? 'network error');
+      }
     } finally {
       setLoading(false);
     }

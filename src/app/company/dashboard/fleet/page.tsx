@@ -20,6 +20,7 @@ interface FleetVehicle {
   busRegistration: string;
   driverName: string;
   driverId: string;
+  assignedRouteId?: string;
   lastActive: string;
 }
 
@@ -197,15 +198,13 @@ export default function CompanyFleetPage() {
                         {lastActiveTime}
                       </td>
                       <td className="py-4 text-right pr-2">
-                        <button
-                          onClick={() => {
-                            alert(`Showing live Google Maps view for vehicle ${vehicle.busRegistration}`);
-                          }}
+                        <Link
+                          href={`/company/dashboard/routes?routeId=${vehicle.assignedRouteId || "593"}`}
                           className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-600 font-bold transition-colors cursor-pointer"
                         >
                           Locate Live
                           <ExternalLink className="h-3 w-3" />
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   );

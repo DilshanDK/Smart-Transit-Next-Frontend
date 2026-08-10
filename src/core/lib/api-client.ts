@@ -1,18 +1,24 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+export const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+};
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request Interceptor: Attach token if we are on the client
+// Request Interceptor: Attach token and dynamically resolve baseURL
 apiClient.interceptors.request.use(
   (config) => {
+    config.baseURL = getApiBaseUrl();
     if (typeof window !== 'undefined') {
       const token = Cookies.get('transit_token');
       if (token) {
@@ -48,7 +54,7 @@ apiClient.interceptors.response.use(
             const role = window.location.pathname.startsWith('/company') ? 'driver' : 'passenger';
             
             const refreshResponse = await axios.post(
-              `${API_BASE_URL}/auth/${role}/refresh`,
+              `${getApiBaseUrl()}/auth/${role}/refresh`,
               { refreshToken },
               {
                 headers: {
@@ -67,12 +73,17 @@ apiClient.interceptors.response.use(
               originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
               return apiClient(originalRequest);
             }
-          } catch (refreshError) {
-            Cookies.remove('transit_token');
-            Cookies.remove('transit_refresh_token');
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login';
+          } catch (refreshError: any) {
+            const refreshStatus = refreshError?.response?.status;
+            if (refreshStatus === 401 || refreshStatus === 403) {
+              // Refresh token is genuinely expired or revoked — force logout
+              Cookies.remove('transit_token');
+              Cookies.remove('transit_refresh_token');
+              if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+              }
             }
+            // For network errors during refresh — don't logout, backend may still be restarting
           }
         }
       }

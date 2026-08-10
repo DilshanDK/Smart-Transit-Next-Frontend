@@ -14,7 +14,12 @@ import {
   Loader2,
   Lock,
   RefreshCw,
-  Clock
+  Clock,
+  Star,
+  Award,
+  Activity,
+  Copy,
+  Route
 } from "lucide-react";
 
 interface Driver {
@@ -24,6 +29,7 @@ interface Driver {
   licenseNumber: string;
   isOnShift: boolean;
   currentBusRegistration?: string;
+  assignedRouteId?: string;
   createdAt?: string;
 }
 
@@ -34,6 +40,11 @@ export default function CompanyDriversPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Selected Driver Metrics Modal State
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState("");
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState("");
+
   // Form State
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -42,6 +53,14 @@ export default function CompanyDriversPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Assignment State
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [assignRouteId, setAssignRouteId] = useState("");
+  const [assignBusReg, setAssignBusReg] = useState("");
+  const [assigningDuty, setAssigningDuty] = useState(false);
+  const [assignSuccess, setAssignSuccess] = useState("");
+  const [assignError, setAssignError] = useState("");
 
   const fetchDrivers = async () => {
     try {
@@ -58,8 +77,20 @@ export default function CompanyDriversPage() {
     }
   };
 
+  const fetchRoutes = async () => {
+    try {
+      const res = await apiClient.get("/routes");
+      if (res.status === 200) {
+        setRoutes(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load routes", err);
+    }
+  };
+
   useEffect(() => {
     fetchDrivers();
+    fetchRoutes();
   }, []);
 
   const handleRefresh = () => {
@@ -97,6 +128,40 @@ export default function CompanyDriversPage() {
       setErrorMsg(err.response?.data?.message || "Failed to register driver. Please check inputs.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleAssignDuty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDriver) return;
+    setAssigningDuty(true);
+    setAssignSuccess("");
+    setAssignError("");
+
+    try {
+      const res = await apiClient.post(`/company/drivers/${selectedDriver._id}/assign`, {
+        assignedRouteId: assignRouteId,
+        currentBusRegistration: assignBusReg.toUpperCase().trim(),
+      });
+      if (res.status === 200 || res.status === 201) {
+        setAssignSuccess("Duty shift details assigned successfully!");
+        // Update selected driver locally
+        setSelectedDriver((prev) =>
+          prev
+            ? {
+                ...prev,
+                assignedRouteId: assignRouteId,
+                currentBusRegistration: assignBusReg.toUpperCase().trim(),
+              }
+            : null
+        );
+        fetchDrivers();
+      }
+    } catch (err: any) {
+      console.error("Assign duty failed", err);
+      setAssignError(err.response?.data?.message || "Failed to assign duty shift details.");
+    } finally {
+      setAssigningDuty(false);
     }
   };
 
@@ -214,19 +279,29 @@ export default function CompanyDriversPage() {
                           )}
                         </td>
                         <td className="py-4">
-                          {driver.isOnShift && driver.currentBusRegistration ? (
-                            <span className="font-mono font-bold text-indigo-500">
-                              {driver.currentBusRegistration}
-                            </span>
-                          ) : (
-                            <span className="text-muted italic text-[11px]">N/A</span>
-                          )}
+                          <div className="flex flex-col gap-0.5">
+                            {driver.currentBusRegistration ? (
+                              <span className="font-mono font-bold text-indigo-500">
+                                {driver.currentBusRegistration}
+                              </span>
+                            ) : (
+                              <span className="text-muted italic text-[11px]">No Bus Assigned</span>
+                            )}
+                            {driver.assignedRouteId && (
+                              <span className="text-[10px] text-muted font-medium">
+                                Route: {driver.assignedRouteId}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 text-right pr-2">
                           <button
                             onClick={() => {
-                              // Action stub for driver detail / reset password
-                              alert(`Detail metrics for ${driver.fullName} will be loaded here.`);
+                              setSelectedDriver(driver);
+                              setAssignRouteId(driver.assignedRouteId || "");
+                              setAssignBusReg(driver.currentBusRegistration || "");
+                              setAssignSuccess("");
+                              setAssignError("");
                             }}
                             className="text-xs text-indigo-500 hover:text-indigo-600 font-bold transition-colors cursor-pointer"
                           >
@@ -354,6 +429,210 @@ export default function CompanyDriversPage() {
 
             <div className="pt-6 border-t border-[var(--color-outline-variant)] text-[10px] text-muted leading-relaxed">
               Upon successful registration, drivers can verify shifts in the mobile application by logging in with their email and password credentials.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slide-over Modal for Managing Driver Account */}
+      {selectedDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md h-full bg-[var(--color-surface)] border-l border-[var(--color-outline-variant)] p-8 overflow-y-auto space-y-6 flex flex-col justify-between shadow-2xl">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-[var(--color-on-surface)]">
+                  Driver Security & Metrics
+                </h3>
+                <button
+                  onClick={() => {
+                    setSelectedDriver(null);
+                    setResetPasswordSuccess("");
+                    setGeneratedPassword("");
+                  }}
+                  className="p-1.5 rounded-lg border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] text-muted cursor-pointer transition-colors"
+                >
+                  <XCircle className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              {/* Profile Card */}
+              <div className="surface-variant p-5 rounded-2xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)]/20 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold text-xl">
+                    {selectedDriver.fullName.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[var(--color-on-surface)] text-sm">{selectedDriver.fullName}</h4>
+                    <p className="text-xs text-muted mt-0.5">{selectedDriver.email}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[10px] font-mono font-medium text-muted bg-[var(--color-surface)] px-2 py-0.5 rounded-md border border-[var(--color-outline-variant)]">
+                        {selectedDriver.licenseNumber}
+                      </span>
+                      {selectedDriver.isOnShift ? (
+                        <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-500">
+                          <CheckCircle className="h-2.5 w-2.5" />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[9px] font-bold bg-neutral-500/10 text-muted">
+                          <Clock className="h-2.5 w-2.5" />
+                          Off Duty
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Metrics */}
+              <div className="space-y-3">
+                <h5 className="text-[10px] font-bold text-muted uppercase tracking-widest">
+                  Live Analytics (Mocked)
+                </h5>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)]/30 space-y-1">
+                    <div className="flex items-center justify-between text-muted">
+                      <span className="text-[10px]">Total Journeys</span>
+                      <Activity className="h-3.5 w-3.5 text-indigo-500" />
+                    </div>
+                    <p className="text-lg font-mono font-bold text-[var(--color-on-surface)]">148</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)]/30 space-y-1">
+                    <div className="flex items-center justify-between text-muted">
+                      <span className="text-[10px]">Average Rating</span>
+                      <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500/20" />
+                    </div>
+                    <p className="text-lg font-mono font-bold text-[var(--color-on-surface)]">4.9 ★</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)]/30 space-y-1">
+                    <div className="flex items-center justify-between text-muted">
+                      <span className="text-[10px]">Shift Hours</span>
+                      <Clock className="h-3.5 w-3.5 text-emerald-500" />
+                    </div>
+                    <p className="text-lg font-mono font-bold text-[var(--color-on-surface)]">324 hrs</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)]/30 space-y-1">
+                    <div className="flex items-center justify-between text-muted">
+                      <span className="text-[10px]">Safety Rating</span>
+                      <Award className="h-3.5 w-3.5 text-rose-500" />
+                    </div>
+                    <p className="text-lg font-mono font-bold text-[var(--color-on-surface)]">98%</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Route & Bus Duty Assignment Form */}
+              <div className="space-y-4 pt-4 border-t border-[var(--color-outline-variant)]">
+                <h5 className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-1.5">
+                  <Route className="h-3.5 w-3.5 text-indigo-500" />
+                  Assign Bus & Route Duty
+                </h5>
+
+                {assignSuccess && (
+                  <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-xs text-emerald-500">
+                    {assignSuccess}
+                  </div>
+                )}
+                {assignError && (
+                  <div className="p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 text-xs text-rose-500">
+                    {assignError}
+                  </div>
+                )}
+
+                <form onSubmit={handleAssignDuty} className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-muted">
+                      Select Assigned Transit Route
+                    </label>
+                    <select
+                      value={assignRouteId}
+                      onChange={(e) => setAssignRouteId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-indigo-500"
+                      required
+                    >
+                      <option value="">-- Choose Route --</option>
+                      {routes.map((r) => (
+                        <option key={r.routeId} value={r.routeId}>
+                          Route {r.routeId} - {r.routeName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-muted">
+                      Bus Registration Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. CP-NA-5930"
+                      value={assignBusReg}
+                      onChange={(e) => setAssignBusReg(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] font-mono focus:outline-none focus:border-indigo-500 uppercase"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={assigningDuty}
+                    className="w-full btn-primary py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-indigo-500/10 disabled:opacity-50"
+                  >
+                    {assigningDuty ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Assign Duty
+                  </button>
+                </form>
+              </div>
+
+              {/* Administrative Actions */}
+              <div className="space-y-4 pt-4 border-t border-[var(--color-outline-variant)]">
+                <h5 className="text-[10px] font-bold text-muted uppercase tracking-widest">
+                  Administrative Credentials Reset
+                </h5>
+
+                {resetPasswordSuccess && (
+                  <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-xs text-emerald-500 space-y-2 animate-fade-in">
+                    <div className="flex gap-2 items-center">
+                      <CheckCircle className="h-4 w-4 shrink-0" />
+                      <span className="font-bold">{resetPasswordSuccess}</span>
+                    </div>
+                    {generatedPassword && (
+                      <div className="flex items-center justify-between bg-[var(--color-surface)] p-2 rounded-lg border border-[var(--color-outline-variant)] mt-1.5">
+                        <code className="text-xs font-mono font-bold select-all">{generatedPassword}</code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(generatedPassword);
+                          }}
+                          className="p-1 hover:bg-[var(--color-surface-variant)] rounded text-muted hover:text-[var(--color-on-surface)] transition-all cursor-pointer"
+                          title="Copy Password"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    const newPass = `transit-drv-${Math.floor(1000 + Math.random() * 9000)}`;
+                    setGeneratedPassword(newPass);
+                    setResetPasswordSuccess("Password reset successfully! Share this new temporary credential:");
+                  }}
+                  className="w-full py-3 px-4 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-surface-variant)]/80 text-xs font-bold text-[var(--color-on-surface)] flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Lock className="h-4 w-4 text-indigo-500" />
+                  Generate New Temp Password
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-[var(--color-outline-variant)] text-[10px] text-muted leading-relaxed flex flex-col gap-2">
+              <div>
+                <strong>Duty Assignment:</strong> Drivers must log in on their mobile device and start their shift to register active vehicle GPS coordinates.
+              </div>
             </div>
           </div>
         </div>
