@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, Suspense } from "react";
+import React, { useEffect, useState, useRef, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiClient, getApiBaseUrl } from "@/core/lib/api-client";
 import { io, Socket } from "socket.io-client";
@@ -33,6 +33,8 @@ import {
   Zap,
   Activity,
   ArrowRight,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 interface RouteStop {
@@ -120,6 +122,32 @@ function CompanyRoutesContent() {
   // Live Telemetry state
   const [liveBuses, setLiveBuses] = useState<LiveBus[]>([]);
   const [telemetryConnected, setTelemetryConnected] = useState(false);
+  const [isLockedOnBus, setIsLockedOnBus] = useState(true); // Default to locked on bus
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch((err) => {
+        console.error("Error enabling fullscreen", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const fetchRoutes = async () => {
     try {
@@ -244,6 +272,18 @@ function CompanyRoutesContent() {
 
   // Primary active bus for ETA calculation
   const primaryBus = liveBuses.length > 0 ? liveBuses[0] : null;
+
+  // Lock camera to bus when active
+  useEffect(() => {
+    if (isLockedOnBus && mapRef && primaryBus) {
+      mapRef.panTo({ lat: primaryBus.latitude, lng: primaryBus.longitude });
+    }
+  }, [primaryBus?.latitude, primaryBus?.longitude, isLockedOnBus, mapRef]);
+
+  // Unlock camera if user manually drags map
+  const handleMapDragStart = () => {
+    setIsLockedOnBus(false);
+  };
 
   // Calculate live ETA for each stop based on current bus location & speed
   const calculateStopETA = (stop: RouteStop, bus: LiveBus | null) => {
@@ -425,13 +465,15 @@ function CompanyRoutesContent() {
   };
 
   // Dynamic Map Centroid
-  const mapCenter =
-    drawPath.length > 0
-      ? {
-          lat: drawPath.reduce((sum, pt) => sum + pt.lat, 0) / drawPath.length,
-          lng: drawPath.reduce((sum, pt) => sum + pt.lng, 0) / drawPath.length,
-        }
-      : { lat: 7.379, lng: 80.6285 };
+  const mapCenter = useMemo(() => {
+    if (drawPath.length > 0) {
+      return {
+        lat: drawPath.reduce((sum, pt) => sum + pt.lat, 0) / drawPath.length,
+        lng: drawPath.reduce((sum, pt) => sum + pt.lng, 0) / drawPath.length,
+      };
+    }
+    return { lat: 7.379, lng: 80.6285 };
+  }, [drawPath]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -735,7 +777,12 @@ function CompanyRoutesContent() {
                     </div>
                   )}
 
-                  <div className="relative border border-[var(--color-outline-variant)] rounded-2xl overflow-hidden h-[400px] bg-[#0c0c12]">
+                  <div
+                    ref={containerRef}
+                    className={`relative border border-[var(--color-outline-variant)] overflow-hidden bg-[#0c0c12] transition-all duration-300 ${
+                      isFullscreen ? "w-screen h-screen rounded-none" : "h-[400px] rounded-2xl"
+                    }`}
+                  >
                     {!isLoaded ? (
                       <div className="h-full w-full flex flex-col items-center justify-center gap-2">
                         {loadError ? (
@@ -752,15 +799,18 @@ function CompanyRoutesContent() {
                         )}
                       </div>
                     ) : (
-                      <GoogleMap
+                      <>
+                        <GoogleMap
                         mapContainerClassName="w-full h-full"
                         center={mapCenter}
                         zoom={11}
                         onLoad={(map) => setMapRef(map)}
                         onClick={handleMapClick}
                         onDblClick={handleMapDoubleClick}
+                        onDragStart={handleMapDragStart}
                         options={{
                           disableDoubleClickZoom: true,
+                          fullscreenControl: false,
                           styles: [
                             { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
                             { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -949,13 +999,68 @@ function CompanyRoutesContent() {
                                   0%   { transform: translate(-50%,-50%) scale(0.6); opacity:0.9; }
                                   100% { transform: translate(-50%,-50%) scale(1.9); opacity:0; }
                                 }
+                                @keyframes spinSlow {
+                                  from { transform: rotate(0deg); }
+                                  to { transform: rotate(360deg); }
+                                }
+                                .animate-spin-slow {
+                                  animation: spinSlow 8s linear infinite;
+                                }
                               `}</style>
                             </div>
                           </OverlayView>
                         ))}
                       </GoogleMap>
-                    )}
-                  </div>
+
+                      <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+                        {primaryBus && (
+                          <button
+                            onClick={() => {
+                              const targetState = !isLockedOnBus;
+                              setIsLockedOnBus(targetState);
+                              if (targetState && mapRef) {
+                                mapRef.panTo({ lat: primaryBus.latitude, lng: primaryBus.longitude });
+                              }
+                            }}
+                            className={`p-3 rounded-xl shadow-lg border flex items-center justify-center transition-all duration-300 backdrop-blur-md cursor-pointer ${
+                              isLockedOnBus
+                                ? "bg-emerald-500 text-white border-emerald-400 hover:bg-emerald-600"
+                                : "bg-[var(--color-surface)]/95 text-[var(--color-on-surface)] border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)]"
+                            }`}
+                            title={isLockedOnBus ? "Unlock camera from bus" : "Lock camera on bus"}
+                          >
+                            <Compass className={`h-4.5 w-4.5 ${isLockedOnBus ? "animate-spin-slow" : ""}`} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (mapRef && drawPath.length > 0) {
+                              const bounds = new google.maps.LatLngBounds();
+                              drawPath.forEach((pt) => bounds.extend(pt));
+                              mapRef.fitBounds(bounds, { top: 30, right: 30, bottom: 30, left: 30 });
+                            }
+                          }}
+                          className="p-3 rounded-xl bg-[var(--color-surface)]/95 text-[var(--color-on-surface)] border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] shadow-lg transition-all backdrop-blur-md cursor-pointer"
+                          title="Fit map to route"
+                        >
+                          <Navigation className="h-4.5 w-4.5 rotate-45" />
+                        </button>
+
+                        <button
+                          onClick={toggleFullscreen}
+                          className="p-3 rounded-xl bg-[var(--color-surface)]/95 text-[var(--color-on-surface)] border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] shadow-lg transition-all backdrop-blur-md cursor-pointer"
+                          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                        >
+                          {isFullscreen ? (
+                            <Minimize2 className="h-4.5 w-4.5" />
+                          ) : (
+                            <Maximize2 className="h-4.5 w-4.5" />
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
                 </div>
 
                 {/* Real-Time Next-Stop Arrival Times & Stops Registry */}
