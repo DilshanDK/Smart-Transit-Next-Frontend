@@ -9,6 +9,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 :root {
+  color-scheme: light;
   --color-primary: #28A745;
   --color-primary-dark: #1B8C3A;
   --color-primary-light: #4CAF50;
@@ -28,7 +29,9 @@
   --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.04);
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+:root.dark {
+  color-scheme: dark;
   --color-primary: #28A745;
   --color-primary-dark: #1B8C3A;
   --color-primary-light: #4CAF50;
@@ -46,6 +49,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
+    color-scheme: dark;
     --color-primary: #28A745;
     --color-primary-dark: #1B8C3A;
     --color-primary-light: #4CAF50;
@@ -233,5 +237,93 @@ body {
 
 .animate-float-glow-2 {
   animation: float-glow-2 20s ease-in-out infinite;
+}
+
+/* ── Theme-Aware Sleek Scrollbars ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb,
+:root:not([data-theme]) ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover,
+:root:not([data-theme]) ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-light);
+}
+
+/* Firefox-only scrollbar fallback so Chromium continues using ::-webkit-scrollbar */
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+  :root:not([data-theme="dark"]) * {
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #10b981 transparent;
+  }
+}
+
+/* Custom Emerald/Dark Scrollbar Utility */
+.custom-scrollbar {
+  color-scheme: dark !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-radius: 9999px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-button,
+.custom-scrollbar::-webkit-scrollbar-button:single-button,
+.custom-scrollbar::-webkit-scrollbar-button:vertical:decrement,
+.custom-scrollbar::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.45) !important;
+  border-radius: 9999px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #10b981 !important;
 }
 

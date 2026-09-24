@@ -52,6 +52,7 @@ export default function PassengerDashboardLayout({
 
   const navItems = [
     { label: 'Overview', href: '/passenger/dashboard', icon: LayoutDashboard },
+    { label: 'Live Tracking', href: '/passenger/dashboard/tracking', icon: Compass },
     { label: 'Journeys', href: '/passenger/dashboard/journeys', icon: History },
     { label: 'Wallet', href: '/passenger/dashboard/wallet', icon: Wallet },
     { label: 'Profile', href: '/passenger/dashboard/profile', icon: User },
@@ -90,9 +91,9 @@ export default function PassengerDashboardLayout({
       </header>
 
       {/* Sidebar (Desktop - Matching design template structure) */}
-      <aside className={`md:flex flex-col w-full md:w-64 border-r border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-4 py-6 sticky top-0 h-screen z-30 transition-transform duration-300 md:translate-x-0 ${
+      <aside className={`md:flex flex-col w-full md:w-64 border-r border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-4 py-6 sticky top-0 h-screen z-30 transition-transform duration-300 md:translate-x-0 overflow-y-auto custom-scrollbar ${
         mobileMenuOpen ? 'block fixed inset-0 top-[60px] h-[calc(100vh-60px)]' : 'hidden'
-      }`}>
+      }`} style={{ colorScheme: 'dark' }}>
         
         {/* Brand/Logo header */}
         <div className="hidden md:flex items-center gap-3 px-3 mb-8">
