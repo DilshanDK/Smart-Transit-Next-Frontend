@@ -133,20 +133,20 @@ export default function PassengerDashboardOverview() {
         {/* Wallet Balance Card */}
         <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-[var(--color-primary)] to-[#009b35] text-white shadow-lg relative overflow-hidden flex flex-col justify-between h-48 md:h-56">
           {/* Abstract Wave */}
-          <div className="absolute right-[-10%] top-[-10%] w-[60%] h-[70%] bg-white bg-opacity-5 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute right-[-10%] top-[-10%] w-[60%] h-[70%] bg-white/5 rounded-full blur-2xl pointer-events-none" />
           
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-lg bg-white bg-opacity-15 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center">
                 <Wallet className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-semibold tracking-wide bg-white bg-opacity-10 px-2.5 py-0.5 rounded-full">
+              <span className="text-sm font-semibold tracking-wide bg-white/10 px-2.5 py-0.5 rounded-full">
                 Prepaid Transit Wallet
               </span>
             </div>
             <Link
               href="/passenger/dashboard/wallet"
-              className="h-8 w-8 rounded-full bg-white bg-opacity-15 hover:bg-opacity-25 flex items-center justify-center transition-all"
+              className="h-8 w-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-all"
             >
               <ArrowUpRight className="h-4 w-4" />
             </Link>

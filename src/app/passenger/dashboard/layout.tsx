@@ -35,11 +35,16 @@ export default function PassengerDashboardLayout({
   if (loading) {
     return (
       <div className="app-shell min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center animate-spin shadow-lg">
-            <Bus className="h-5 w-5 text-white" />
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
+          <div className="relative flex items-center justify-center">
+            {/* Spinning outer loader ring */}
+            <div className="absolute h-14 w-14 rounded-2xl border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            {/* Static upright icon */}
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <Bus className="h-5 w-5 text-white" />
+            </div>
           </div>
-          <span className="text-sm text-muted font-medium">Synchronizing profile...</span>
+          <span className="text-xs text-muted font-medium tracking-wide">Synchronizing profile...</span>
         </div>
       </div>
     );
@@ -47,6 +52,7 @@ export default function PassengerDashboardLayout({
 
   const navItems = [
     { label: 'Overview', href: '/passenger/dashboard', icon: LayoutDashboard },
+    { label: 'Live Tracking', href: '/passenger/dashboard/tracking', icon: Compass },
     { label: 'Journeys', href: '/passenger/dashboard/journeys', icon: History },
     { label: 'Wallet', href: '/passenger/dashboard/wallet', icon: Wallet },
     { label: 'Profile', href: '/passenger/dashboard/profile', icon: User },
@@ -85,9 +91,9 @@ export default function PassengerDashboardLayout({
       </header>
 
       {/* Sidebar (Desktop - Matching design template structure) */}
-      <aside className={`md:flex flex-col w-full md:w-64 border-r border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-4 py-6 sticky top-0 h-screen z-30 transition-transform duration-300 md:translate-x-0 ${
+      <aside className={`md:flex flex-col w-full md:w-64 border-r border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-4 py-6 sticky top-0 h-screen z-30 transition-transform duration-300 md:translate-x-0 overflow-y-auto custom-scrollbar ${
         mobileMenuOpen ? 'block fixed inset-0 top-[60px] h-[calc(100vh-60px)]' : 'hidden'
-      }`}>
+      }`} style={{ colorScheme: 'dark' }}>
         
         {/* Brand/Logo header */}
         <div className="hidden md:flex items-center gap-3 px-3 mb-8">

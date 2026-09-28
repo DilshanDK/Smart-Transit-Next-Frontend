@@ -42,7 +42,7 @@ export default function WalletPage() {
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [topUpAmount, setTopUpAmount] = useState<number>(500);
   const [customAmount, setCustomAmount] = useState<string>("");
-  const [isSandbox, setIsSandbox] = useState<boolean>(true); // Default to Sandbox for easy local dev
+  const [isSandbox, setIsSandbox] = useState<boolean>(false); // Default to Sandbox for easy local dev
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadingIntent, setLoadingIntent] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -230,7 +230,7 @@ export default function WalletPage() {
         {/* Left Section (Card & Top Up Form) - 7 cols */}
         <div className="lg:col-span-7 space-y-6">
           {/* Credit Card Graphic */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-[var(--color-primary)] to-emerald-500 text-white shadow-xl p-8 flex flex-col justify-between aspect-[1.586/1] md:h-64 select-none">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-[var(--color-primary)] to-emerald-500 text-white shadow-xl p-8 flex flex-col justify-between w-full min-h-[220px] md:min-h-[250px] select-none">
             {/* Hologram card detail */}
             <div className="absolute right-0 top-0 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
             
@@ -272,35 +272,6 @@ export default function WalletPage() {
           <div className="card p-6 md:p-8 space-y-6">
             <h3 className="text-base font-bold tracking-tight">Add Funds</h3>
             
-            {/* Sandbox Dev Mode Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
-              <div className="flex gap-3 items-start pr-4">
-                <Zap className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-amber-600 dark:text-amber-500">Developer Sandbox Mode</h4>
-                  <p className="text-[11px] text-muted mt-0.5 leading-relaxed">
-                    Instantly credit wallet balance directly to MongoDB without setting up Stripe webhooks/tunnels.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSandbox(!isSandbox);
-                  setClientSecret(null);
-                }}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  isSandbox ? "bg-amber-500" : "bg-neutral-300 dark:bg-neutral-800"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    isSandbox ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-
             {/* Presets Grid */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-muted uppercase tracking-wider">Select Preset Amount</label>
@@ -407,6 +378,35 @@ export default function WalletPage() {
                 )}
               </button>
             )}
+
+            {/* Sandbox Dev Mode Toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 mt-4">
+              <div className="flex gap-3 items-start pr-4">
+                <Zap className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-amber-600 dark:text-amber-500">Developer Sandbox Mode</h4>
+                  <p className="text-[11px] text-muted mt-0.5 leading-relaxed">
+                    Instantly credit wallet balance directly to MongoDB without setting up Stripe webhooks/tunnels.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSandbox(!isSandbox);
+                  setClientSecret(null);
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isSandbox ? "bg-amber-500" : "bg-neutral-300 dark:bg-neutral-800"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isSandbox ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
 
             {/* Stripe Card Element Modal View */}
             {clientSecret && !isSandbox && (

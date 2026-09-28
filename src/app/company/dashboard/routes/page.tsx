@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { apiClient } from "@/core/lib/api-client";
+import React, { useEffect, useState, useRef, Suspense, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { apiClient, getApiBaseUrl } from "@/core/lib/api-client";
+import { io, Socket } from "socket.io-client";
+import Cookies from "js-cookie";
 import {
   GoogleMap,
   useJsApiLoader,
   Polyline,
   Marker,
+  OverlayView,
 } from "@react-google-maps/api";
 import {
   Compass,
@@ -22,6 +26,15 @@ import {
   AlertCircle,
   Map,
   CheckCircle,
+  Bus,
+  Radio,
+  Navigation,
+  Gauge,
+  Zap,
+  Activity,
+  ArrowRight,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 interface RouteStop {
@@ -48,6 +61,18 @@ interface TransitRoute {
   };
 }
 
+interface LiveBus {
+  driverId: string;
+  busNumber: string;
+  routeId: string;
+  latitude: number;
+  longitude: number;
+  speed: number;
+  heading: number;
+  status: string;
+  updatedAt: string;
+}
+
 // Haversine formula to compute distance between two coords
 function getLatLngDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371; // Radius of earth in km
@@ -63,7 +88,10 @@ function getLatLngDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c;
 }
 
-export default function CompanyRoutesPage() {
+function CompanyRoutesContent() {
+  const searchParams = useSearchParams();
+  const routeIdParam = searchParams?.get("routeId");
+
   const [routes, setRoutes] = useState<TransitRoute[]>([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -87,8 +115,39 @@ export default function CompanyRoutesPage() {
   const [editMode, setEditMode] = useState(false);
   const [drawPath, setDrawPath] = useState<{ lat: number; lng: number }[]>([]);
   const [drawStops, setDrawStops] = useState<RouteStop[]>([]);
+  const [mapRef, setMapRef] = useState<google.maps.Map | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Live Telemetry state
+  const [liveBuses, setLiveBuses] = useState<LiveBus[]>([]);
+  const [telemetryConnected, setTelemetryConnected] = useState(false);
+  const [isLockedOnBus, setIsLockedOnBus] = useState(true); // Default to locked on bus
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch((err) => {
+        console.error("Error enabling fullscreen", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const fetchRoutes = async () => {
     try {
@@ -97,6 +156,14 @@ export default function CompanyRoutesPage() {
       if (res.status === 200) {
         setRoutes(res.data);
         if (res.data.length > 0) {
+          if (routeIdParam) {
+            const idx = res.data.findIndex((r: any) => r.routeId === routeIdParam);
+            if (idx >= 0) {
+              setActiveRouteIndex(idx);
+              setLoading(false);
+              return;
+            }
+          }
           setActiveRouteIndex(0);
         }
       }
@@ -117,10 +184,11 @@ export default function CompanyRoutesPage() {
   // Set up drawing coordinates when active route changes or edit mode toggles
   useEffect(() => {
     if (activeRoute) {
-      const coords = activeRoute.path?.coordinates.map(([lng, lat]) => ({
-        lat,
-        lng,
-      })) || [];
+      const coords =
+        activeRoute.path?.coordinates.map(([lng, lat]) => ({
+          lat,
+          lng,
+        })) || [];
       setDrawPath(coords);
       setDrawStops(activeRoute.stops || []);
     } else {
@@ -129,6 +197,131 @@ export default function CompanyRoutesPage() {
     }
     setEditMode(false);
   }, [activeRouteIndex, activeRoute]);
+
+  // Fit bounds whenever map or drawPath updates
+  useEffect(() => {
+    if (mapRef && drawPath.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      drawPath.forEach((pt) => bounds.extend(pt));
+      mapRef.fitBounds(bounds, { top: 30, right: 30, bottom: 30, left: 30 });
+    }
+  }, [mapRef, drawPath]);
+
+  // Real-Time WebSocket Telemetry Subscription
+  useEffect(() => {
+    if (!activeRoute?.routeId) return;
+
+    const token = Cookies.get("transit_token");
+    const socketUrl = `${getApiBaseUrl()}/tracking`;
+
+    const socket: Socket = io(socketUrl, {
+      transports: ["websocket"],
+      auth: { token },
+    });
+
+    socket.on("connect", () => {
+      setTelemetryConnected(true);
+      socket.emit("join_route", { routeId: activeRoute.routeId });
+    });
+
+    socket.on("disconnect", () => {
+      setTelemetryConnected(false);
+    });
+
+    socket.on("bus_moved", (payload: LiveBus) => {
+      if (payload.routeId === activeRoute.routeId) {
+        setLiveBuses((prev) => {
+          const idx = prev.findIndex((b) => b.driverId === payload.driverId);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = payload;
+            return updated;
+          }
+          return [...prev, payload];
+        });
+      }
+    });
+
+    // Fetch initial live buses via REST
+    apiClient
+      .get("/tracking/live", { params: { routeId: activeRoute.routeId } })
+      .then((res) => {
+        if (res.status === 200 && Array.isArray(res.data)) {
+          const mapped: LiveBus[] = res.data
+            .filter((item: any) => item.status !== "OFFLINE")
+            .map((item: any) => ({
+              driverId: item.driverId?.toString() || item._id,
+              busNumber: item.busNumber || "Active Bus",
+              routeId: item.routeId,
+              latitude: item.currentLocation?.coordinates?.[1] || 0,
+              longitude: item.currentLocation?.coordinates?.[0] || 0,
+              speed: item.speed || 0,
+              heading: item.heading || 0,
+              status: item.status || "ACTIVE",
+              updatedAt: item.lastUpdated || new Date().toISOString(),
+            }));
+          setLiveBuses(mapped);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [activeRoute?.routeId]);
+
+  // Primary active bus for ETA calculation
+  const primaryBus = liveBuses.length > 0 ? liveBuses[0] : null;
+
+  // Lock camera to bus when active
+  useEffect(() => {
+    if (isLockedOnBus && mapRef && primaryBus) {
+      mapRef.panTo({ lat: primaryBus.latitude, lng: primaryBus.longitude });
+    }
+  }, [primaryBus?.latitude, primaryBus?.longitude, isLockedOnBus, mapRef]);
+
+  // Unlock camera if user manually drags map
+  const handleMapDragStart = () => {
+    setIsLockedOnBus(false);
+  };
+
+  // Calculate live ETA for each stop based on current bus location & speed
+  const calculateStopETA = (stop: RouteStop, bus: LiveBus | null) => {
+    if (!bus) return null;
+    const distKm = getLatLngDistance(
+      bus.latitude,
+      bus.longitude,
+      stop.location.coordinates[1],
+      stop.location.coordinates[0]
+    );
+
+    // If within 250m
+    if (distKm < 0.25) {
+      return {
+        status: "At Stop",
+        distKm: distKm.toFixed(1),
+        text: "Arrived",
+        clockTime: "Now",
+        isPast: false,
+      };
+    }
+
+    const busSpeed = bus.speed > 15 ? bus.speed : 35; // Default 35 km/h urban speed
+    const mins = Math.max(1, Math.round((distKm / busSpeed) * 60));
+    const arrivalDate = new Date(Date.now() + mins * 60000);
+    const clockTime = arrivalDate.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    return {
+      status: "Approaching",
+      distKm: distKm.toFixed(1),
+      text: `${mins} min${mins > 1 ? "s" : ""}`,
+      clockTime,
+      isPast: false,
+    };
+  };
 
   // Handle map click to extend polyline path in edit mode
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
@@ -146,20 +339,17 @@ export default function CompanyRoutesPage() {
     const stopName = prompt("Enter a name for this transit stop:");
     if (!stopName) return;
 
-    // Calculate distance from start terminal (first coordinate in path)
     let distanceFromStart = 0;
     if (drawPath.length > 0) {
-      distanceFromStart = getLatLngDistance(
-        drawPath[0].lat,
-        drawPath[0].lng,
-        lat,
-        lng
+      const startCoord = drawPath[0];
+      distanceFromStart = parseFloat(
+        getLatLngDistance(startCoord.lat, startCoord.lng, lat, lng).toFixed(2)
       );
     }
 
     const newStop: RouteStop = {
       name: stopName,
-      distanceFromStart: parseFloat(distanceFromStart.toFixed(2)),
+      distanceFromStart,
       location: {
         type: "Point",
         coordinates: [lng, lat],
@@ -169,117 +359,102 @@ export default function CompanyRoutesPage() {
     setDrawStops((prev) => [...prev, newStop]);
   };
 
-  // Add Route DTO creation and POST to backend
-  const handleAddRoute = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRouteId || !newRouteName || !newStart || !newEnd) return;
-
+  // Save Route Edits
+  const handleSaveRoute = async () => {
+    if (!activeRoute) return;
     setSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const defaultCoords: [number, number][] = [
-      [79.8612, 6.9271], // Colombo center
-      [79.8812, 6.9471],
-    ];
-
-    const routeObj: TransitRoute = {
-      routeId: newRouteId,
-      routeName: newRouteName,
-      startTerminal: newStart,
-      endTerminal: newEnd,
-      baseFare: parseFloat(newBase) || 50,
-      ratePerKm: parseFloat(newRate) || 10,
-      stops: [
-        {
-          name: newStart,
-          distanceFromStart: 0,
-          location: { type: "Point", coordinates: defaultCoords[0] },
-        },
-        {
-          name: newEnd,
-          distanceFromStart: 5.0,
-          location: { type: "Point", coordinates: defaultCoords[1] },
-        },
-      ],
-      path: {
-        type: "LineString",
-        coordinates: defaultCoords,
-      },
-    };
+    const updatedPathCoords: [number, number][] = drawPath.map((pt) => [
+      pt.lng,
+      pt.lat,
+    ]);
 
     try {
-      const res = await apiClient.post("/routes", routeObj);
-      if (res.status === 200 || res.status === 201) {
-        setSuccessMsg(`Route ${newRouteId} registered successfully!`);
+      const res = await apiClient.put(`/routes/${activeRoute.routeId}`, {
+        stops: drawStops,
+        path: {
+          type: "LineString",
+          coordinates: updatedPathCoords,
+        },
+      });
+
+      if (res.status === 200) {
+        setSuccessMsg(`Route ${activeRoute.routeId} updated successfully!`);
+        setEditMode(false);
+        fetchRoutes();
+      }
+    } catch (err: any) {
+      console.error("Save route failed", err);
+      setErrorMsg(err.response?.data?.message || "Failed to update route geometry");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete Route
+  const handleDeleteRoute = async () => {
+    if (!activeRoute) return;
+    if (
+      !confirm(
+        `Are you sure you want to delete Route ${activeRoute.routeId} (${activeRoute.routeName})?`
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await apiClient.delete(`/routes/${activeRoute.routeId}`);
+      if (res.status === 200) {
+        setSuccessMsg(`Route ${activeRoute.routeId} deleted.`);
+        fetchRoutes();
+      }
+    } catch (err: any) {
+      console.error("Delete route failed", err);
+      setErrorMsg("Failed to delete route");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Create New Route
+  const handleCreateRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRouteId || !newRouteName || !newStart || !newEnd) {
+      setErrorMsg("Please fill out all required route fields.");
+      return;
+    }
+
+    try {
+      const payload = {
+        routeId: newRouteId.toUpperCase().trim(),
+        routeName: newRouteName.trim(),
+        startTerminal: newStart.trim(),
+        endTerminal: newEnd.trim(),
+        baseFare: parseFloat(newBase) || 50,
+        ratePerKm: parseFloat(newRate) || 10,
+        stops: [],
+        path: {
+          type: "LineString",
+          coordinates: [],
+        },
+      };
+
+      const res = await apiClient.post("/routes", payload);
+      if (res.status === 201 || res.status === 200) {
         setShowAddModal(false);
-        await fetchRoutes();
-        // Clear form
         setNewRouteId("");
         setNewRouteName("");
         setNewStart("");
         setNewEnd("");
+        setSuccessMsg(`Route ${payload.routeId} created!`);
+        fetchRoutes();
       }
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Failed to register new route");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Save the drawn path and stops to Mongoose backend
-  const handleSaveMapChanges = async () => {
-    if (!activeRoute) return;
-
-    setSaving(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    const updatedRoute: TransitRoute = {
-      ...activeRoute,
-      stops: drawStops,
-      path: {
-        type: "LineString",
-        coordinates: drawPath.map((pt) => [pt.lng, pt.lat]),
-      },
-    };
-
-    try {
-      const res = await apiClient.post("/routes", updatedRoute);
-      if (res.status === 200 || res.status === 201) {
-        setSuccessMsg("Route map configuration saved successfully!");
-        setEditMode(false);
-        await fetchRoutes();
-      }
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Failed to save route layout");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Delete route trigger
-  const handleDeleteRoute = async () => {
-    if (!activeRoute) return;
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete Route ${activeRoute.routeId}?`
-    );
-    if (!confirmDelete) return;
-
-    setDeleting(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    try {
-      const res = await apiClient.delete(`/routes/${activeRoute.routeId}`);
-      if (res.status === 200 || res.status === 204) {
-        setSuccessMsg(`Route ${activeRoute.routeId} deleted successfully.`);
-        await fetchRoutes();
-      }
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Failed to delete route");
-    } finally {
-      setDeleting(false);
+      console.error("Create route error", err);
+      setErrorMsg(err.response?.data?.message || "Failed to create new route");
     }
   };
 
@@ -289,8 +464,16 @@ export default function CompanyRoutesPage() {
     setDrawStops([]);
   };
 
-  // Colombo Default map bounds
-  const mapCenter = drawPath.length > 0 ? drawPath[0] : { lat: 6.9271, lng: 79.8612 };
+  // Dynamic Map Centroid
+  const mapCenter = useMemo(() => {
+    if (drawPath.length > 0) {
+      return {
+        lat: drawPath.reduce((sum, pt) => sum + pt.lat, 0) / drawPath.length,
+        lng: drawPath.reduce((sum, pt) => sum + pt.lng, 0) / drawPath.length,
+      };
+    }
+    return { lat: 7.379, lng: 80.6285 };
+  }, [drawPath]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -298,32 +481,40 @@ export default function CompanyRoutesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-[var(--color-on-surface)]">
-            Route Registry Management
+            Route Registry & Live Telemetry
           </h2>
           <p className="text-sm text-muted mt-1">
-            Configure line terminals, distance rates, and scheduling stops for transit schedules.
+            Real-time highway driving roads, live bus location streaming, and next-stop arrival estimates.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary py-2.5 px-5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/10"
-        >
-          <Plus className="h-4 w-4" />
-          Create Transit Route
-        </button>
+        <div className="flex items-center gap-3">
+          {telemetryConnected && (
+            <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <Radio className="h-3.5 w-3.5 animate-pulse" />
+              Live Telemetry Active
+            </span>
+          )}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary py-2.5 px-5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/10"
+          >
+            <Plus className="h-4 w-4" />
+            Create Transit Route
+          </button>
+        </div>
       </div>
 
       {successMsg && (
-        <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 flex gap-3 text-xs">
-          <CheckCircle className="h-4.5 w-4.5 shrink-0" />
+        <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 flex gap-3 text-xs animate-fade-in">
+          <CheckCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 flex gap-3 text-xs">
-          <AlertCircle className="h-4.5 w-4.5 shrink-0" />
+        <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-500 flex gap-3 text-xs animate-fade-in">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
       )}
@@ -332,148 +523,231 @@ export default function CompanyRoutesPage() {
         <div className="py-20 flex justify-center">
           <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
         </div>
+      ) : routes.length === 0 ? (
+        <div className="card p-12 text-center space-y-4">
+          <Compass className="h-12 w-12 text-muted mx-auto opacity-30" />
+          <h3 className="text-lg font-bold">No Routes Configured</h3>
+          <p className="text-xs text-muted max-w-sm mx-auto">
+            Get started by creating your transit network routes and scheduling stops.
+          </p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary py-2.5 px-5 rounded-xl text-xs font-bold"
+          >
+            Add First Route
+          </button>
+        </div>
       ) : (
-        /* Main Grid Layout */
         <div className="grid gap-8 lg:grid-cols-12">
-          {/* Left Side: Route Select List - 4 columns */}
+          {/* Left Route Selector list (4 Columns) */}
           <div className="lg:col-span-4 space-y-4">
-            <div className="card p-5 space-y-4">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-widest block">
-                Active Transit Routes
-              </span>
+            <span className="text-[10px] font-bold text-muted uppercase tracking-widest block">
+              Active Transit Routes ({routes.length})
+            </span>
 
-              {routes.length === 0 ? (
-                <div className="text-center py-8 text-xs text-muted">
-                  No active routes configured in registry database.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {routes.map((route, index) => {
-                    const isActive = index === activeRouteIndex;
-                    return (
-                      <button
-                        key={route.routeId}
-                        onClick={() => setActiveRouteIndex(index)}
-                        className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${
-                          isActive
-                            ? "border-indigo-500 bg-indigo-500/5 text-[var(--color-on-surface)] shadow-sm"
-                            : "border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)]/60 text-muted"
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[10px] font-black px-2 py-0.5 rounded ${
-                                isActive
-                                  ? "bg-indigo-500 text-white"
-                                  : "bg-[var(--color-surface-variant)] text-[var(--color-on-surface)]"
-                              }`}
-                            >
-                              {route.routeId}
-                            </span>
-                            <span className="text-xs font-bold">
-                              {route.routeName}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-muted mt-2">
-                            {route.startTerminal} → {route.endTerminal}
-                          </div>
+            <div className="space-y-3">
+              {routes.map((r, index) => {
+                const isActive = index === activeRouteIndex;
+                const busCount = liveBuses.filter((b) => b.routeId === r.routeId).length;
+
+                return (
+                  <div
+                    key={r.routeId || index}
+                    onClick={() => setActiveRouteIndex(index)}
+                    className={`card p-5 cursor-pointer transition-all border ${
+                      isActive
+                        ? "border-indigo-500 bg-indigo-500/5 shadow-md shadow-indigo-500/5"
+                        : "hover:border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)]/30"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                            Route {r.routeId}
+                          </span>
+                          <h4 className="font-bold text-sm text-[var(--color-on-surface)]">
+                            {r.routeName}
+                          </h4>
                         </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                        <p className="text-xs text-muted">
+                          {r.startTerminal} → {r.endTerminal}
+                        </p>
+                      </div>
 
-            <div className="card p-5 space-y-3.5">
-              <div className="flex gap-2.5 items-start">
-                <Info className="h-4.5 w-4.5 text-indigo-500 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-[11px] font-bold text-[var(--color-on-surface)]">
-                    Geofenced Auto Deductions
-                  </h4>
-                  <p className="text-[10px] text-muted leading-relaxed mt-1">
-                    Passenger fares are computed based on the GPS coordinates
-                    matched against stops in the registry. Ensure distance entries
-                    match actual highways.
-                  </p>
-                </div>
-              </div>
+                      {busCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          {busCount} Live
+                        </span>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted shrink-0 mt-1" />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-[var(--color-outline-variant)]/50 text-[11px] text-muted">
+                      <div>
+                        <span className="block text-[9px] uppercase tracking-wider text-muted/70">
+                          Base Fare
+                        </span>
+                        <span className="font-mono font-semibold text-[var(--color-on-surface)]">
+                          LKR {r.baseFare.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] uppercase tracking-wider text-muted/70">
+                          Rate / KM
+                        </span>
+                        <span className="font-mono font-semibold text-[var(--color-on-surface)]">
+                          LKR {r.ratePerKm.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Right Side: Route Details, Stops, and Map Draw - 8 columns */}
-          {activeRoute && (
-            <div className="lg:col-span-8 space-y-8 animate-fade-in">
-              {/* Route Detail Card */}
+          {/* Right Map & Live Telemetry Inspector (8 Columns) */}
+          <div className="lg:col-span-8 space-y-6">
+            {activeRoute && (
               <div className="card p-6 md:p-8 space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[var(--color-outline-variant)] pb-5">
+                {/* Header info */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--color-outline-variant)] pb-5">
                   <div>
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xs font-black px-2.5 py-1 rounded bg-indigo-500 text-white">
-                        Route {activeRoute.routeId}
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-lg text-xs font-black font-mono bg-indigo-500 text-white shadow-sm">
+                        {activeRoute.routeId}
                       </span>
                       <h3 className="text-lg font-bold text-[var(--color-on-surface)]">
                         {activeRoute.routeName}
                       </h3>
                     </div>
-                    <p className="text-xs text-muted mt-1.5">
-                      Configure pricing and stops scheduling for this active transit link.
+                    <p className="text-xs text-muted mt-1">
+                      {activeRoute.startTerminal} (Terminal) to {activeRoute.endTerminal} (Terminal)
                     </p>
                   </div>
 
-                  <div className="flex gap-4">
-                    <div className="text-right">
-                      <span className="text-[9px] font-bold text-muted uppercase tracking-wider block">
-                        Base Fare
-                      </span>
-                      <span className="text-xs font-black text-emerald-500 block mt-0.5">
-                        LKR {activeRoute.baseFare.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] font-bold text-muted uppercase tracking-wider block">
-                        Rate / KM
-                      </span>
-                      <span className="text-xs font-black text-indigo-500 block mt-0.5">
-                        LKR {activeRoute.ratePerKm.toFixed(2)}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted font-mono bg-[var(--color-surface-variant)] px-3 py-1.5 rounded-xl border border-[var(--color-outline-variant)]">
+                      {activeRoute.stops?.length || 0} Registered Stops
+                    </span>
+                    <span className="text-xs text-muted font-mono bg-[var(--color-surface-variant)] px-3 py-1.5 rounded-xl border border-[var(--color-outline-variant)]">
+                      {activeRoute.path?.coordinates?.length || 0} Road Vertices
+                    </span>
                   </div>
                 </div>
 
-                {/* Google Map Polyline Drawer */}
+                {/* Live Fleet Telemetry Banner */}
+                {liveBuses.length > 0 ? (
+                  <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 space-y-3 animate-fade-in">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                        <span className="text-xs font-bold text-emerald-500 uppercase tracking-wide">
+                          Active Vehicle On Route
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-muted font-mono">
+                        Streaming via WebSocket /tracking
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      <div className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-outline-variant)] space-y-0.5">
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider block">
+                          Bus Plate
+                        </span>
+                        <div className="flex items-center gap-1.5 font-bold font-mono text-xs text-[var(--color-on-surface)]">
+                          <Bus className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>{primaryBus?.busNumber}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-outline-variant)] space-y-0.5">
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider block">
+                          Speed
+                        </span>
+                        <div className="flex items-center gap-1.5 font-bold font-mono text-xs text-indigo-500">
+                          <Gauge className="h-3.5 w-3.5" />
+                          <span>{Math.round(primaryBus?.speed || 0)} km/h</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-outline-variant)] space-y-0.5">
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider block">
+                          Status
+                        </span>
+                        <div className="flex items-center gap-1.5 font-bold font-mono text-xs text-emerald-500">
+                          <Zap className="h-3.5 w-3.5" />
+                          <span>{primaryBus?.status || "ACTIVE"}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-outline-variant)] space-y-0.5">
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-wider block">
+                          Heading
+                        </span>
+                        <div className="flex items-center gap-1.5 font-bold font-mono text-xs text-sky-500">
+                          <Navigation className="h-3.5 w-3.5" />
+                          <span>{Math.round(primaryBus?.heading || 0)}°</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)]/30 flex items-center gap-3 text-xs text-muted">
+                    <Radio className="h-5 w-5 text-indigo-500 shrink-0 opacity-60" />
+                    <span>
+                      <strong>No Active Vehicles Streaming:</strong> When a driver goes on shift on Route {activeRoute.routeId} via the Driver App, live bus location and estimated stop arrival times (ETAs) will stream here in real-time.
+                    </span>
+                  </div>
+                )}
+
+                {/* Map Display & Controls */}
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-1.5">
-                      <Map className="h-4 w-4 text-indigo-500" />
-                      Interactive Route Map Designer
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 text-indigo-500" />
+                      Highway Road Path & Live Vehicle Position
                     </span>
 
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                       {editMode ? (
                         <>
                           <button
                             onClick={handleClearDrawing}
-                            className="px-3 py-1.5 border border-red-500/20 text-red-500 hover:bg-red-500/5 text-[10px] font-bold rounded-lg cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold transition-all cursor-pointer"
                           >
-                            Clear Map
+                            Clear Path
                           </button>
                           <button
-                            onClick={() => setEditMode(false)}
-                            className="px-3 py-1.5 border border-[var(--color-outline-variant)] text-[10px] font-bold rounded-lg cursor-pointer"
+                            onClick={() => {
+                              setEditMode(false);
+                              if (activeRoute) {
+                                setDrawPath(
+                                  activeRoute.path?.coordinates.map(([lng, lat]) => ({
+                                    lat,
+                                    lng,
+                                  })) || []
+                                );
+                                setDrawStops(activeRoute.stops || []);
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-xl border border-[var(--color-outline-variant)] text-muted hover:bg-[var(--color-surface-variant)] text-xs font-bold transition-all cursor-pointer"
                           >
                             Cancel
                           </button>
                           <button
-                            onClick={handleSaveMapChanges}
+                            onClick={handleSaveRoute}
                             disabled={saving}
-                            className="btn-primary px-3 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer flex items-center gap-1"
+                            className="btn-primary px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-500/20"
                           >
-                            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-                            Save Path
+                            {saving ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : null}
+                            Save Geometry
                           </button>
                         </>
                       ) : (
@@ -481,15 +755,14 @@ export default function CompanyRoutesPage() {
                           <button
                             onClick={handleDeleteRoute}
                             disabled={deleting}
-                            className="px-3 py-1.5 border border-red-500/20 text-red-500 hover:bg-red-500/5 text-[10px] font-bold rounded-lg cursor-pointer flex items-center gap-1"
+                            className="p-2 rounded-xl border border-rose-500/20 text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
+                            title="Delete Route"
                           >
-                            {deleting && <Loader2 className="h-3 w-3 animate-spin" />}
-                            <Trash2 className="h-3 w-3" />
-                            Delete Route
+                            <Trash2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setEditMode(true)}
-                            className="btn-primary px-3 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer"
+                            className="btn-primary px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                           >
                             Draw / Edit Map
                           </button>
@@ -504,27 +777,40 @@ export default function CompanyRoutesPage() {
                     </div>
                   )}
 
-                  <div className="relative border border-[var(--color-outline-variant)] rounded-2xl overflow-hidden h-[380px] bg-[#0c0c12]">
+                  <div
+                    ref={containerRef}
+                    className={`relative border border-[var(--color-outline-variant)] overflow-hidden bg-[#0c0c12] transition-all duration-300 ${
+                      isFullscreen ? "w-screen h-screen rounded-none" : "h-[400px] rounded-2xl"
+                    }`}
+                  >
                     {!isLoaded ? (
                       <div className="h-full w-full flex flex-col items-center justify-center gap-2">
                         {loadError ? (
-                          <div className="text-red-400 text-xs">Failed to load Google Maps script. Check key.</div>
+                          <div className="text-red-400 text-xs">
+                            Failed to load Google Maps script. Check key.
+                          </div>
                         ) : (
                           <>
                             <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
-                            <span className="text-[10px] text-muted">Loading Google Maps...</span>
+                            <span className="text-[10px] text-muted">
+                              Loading Google Maps...
+                            </span>
                           </>
                         )}
                       </div>
                     ) : (
-                      <GoogleMap
+                      <>
+                        <GoogleMap
                         mapContainerClassName="w-full h-full"
                         center={mapCenter}
-                        zoom={13}
+                        zoom={11}
+                        onLoad={(map) => setMapRef(map)}
                         onClick={handleMapClick}
                         onDblClick={handleMapDoubleClick}
+                        onDragStart={handleMapDragStart}
                         options={{
                           disableDoubleClickZoom: true,
+                          fullscreenControl: false,
                           styles: [
                             { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
                             { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -567,14 +853,15 @@ export default function CompanyRoutesPage() {
                           ],
                         }}
                       >
-                        {/* Drawn Route Polyline */}
+                        {/* High-Resolution Road Polyline */}
                         {drawPath.length > 1 && (
                           <Polyline
                             path={drawPath}
                             options={{
-                              strokeColor: "#6366f1",
-                              strokeOpacity: 0.8,
-                              strokeWeight: 4,
+                              strokeColor: "#3b82f6",
+                              strokeOpacity: 0.95,
+                              strokeWeight: 4.5,
+                              geodesic: true,
                             }}
                           />
                         )}
@@ -582,7 +869,7 @@ export default function CompanyRoutesPage() {
                         {/* Stop Markers */}
                         {drawStops.map((stop, idx) => (
                           <Marker
-                            key={idx}
+                            key={`stop-${idx}`}
                             position={{
                               lat: stop.location.coordinates[1],
                               lng: stop.location.coordinates[0],
@@ -595,29 +882,215 @@ export default function CompanyRoutesPage() {
                             }}
                           />
                         ))}
+
+                        {/* Live Moving Bus Markers — Animated Uber-style */}
+                        {liveBuses.map((bus, bIdx) => (
+                          <OverlayView
+                            key={`bus-${bus.driverId || bIdx}`}
+                            position={{ lat: bus.latitude, lng: bus.longitude }}
+                            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                            getPixelPositionOffset={(w, h) => ({ x: -w / 2, y: -h / 2 })}
+                          >
+                            <div
+                              title={`Bus ${bus.busNumber} • ${Math.round(bus.speed)} km/h`}
+                              style={{
+                                position: "relative",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                cursor: "pointer",
+                                userSelect: "none",
+                              }}
+                            >
+                              {/* Pulsing ring layers — always centred, never rotated */}
+                              <span style={{
+                                position: "absolute",
+                                top: "50%",
+                                left: "50%",
+                                transform: "translate(-50%, -50%)",
+                                width: 72,
+                                height: 72,
+                                borderRadius: "50%",
+                                background: "rgba(34,197,94,0.18)",
+                                animation: "busRingPulse 2s ease-out infinite",
+                                pointerEvents: "none",
+                              }} />
+                              <span style={{
+                                position: "absolute",
+                                top: "50%",
+                                left: "50%",
+                                transform: "translate(-50%, -50%)",
+                                width: 52,
+                                height: 52,
+                                borderRadius: "50%",
+                                background: "rgba(34,197,94,0.25)",
+                                animation: "busRingPulse 2s ease-out 0.4s infinite",
+                                pointerEvents: "none",
+                              }} />
+
+                              {/* Directional heading arrow — ONLY this rotates */}
+                              <div style={{
+                                position: "absolute",
+                                top: -10,
+                                left: "50%",
+                                transform: `translateX(-50%) rotate(${bus.heading}deg)`,
+                                transformOrigin: "50% 28px",
+                                transition: "transform 1.2s ease",
+                                pointerEvents: "none",
+                              }}>
+                                <svg width="12" height="16" viewBox="0 0 12 16">
+                                  <polygon
+                                    points="6,0 12,14 6,10 0,14"
+                                    fill="#22c55e"
+                                    stroke="white"
+                                    strokeWidth="1.5"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </div>
+
+                              {/* Main bus capsule — UPRIGHT, never rotated */}
+                              <div style={{
+                                position: "relative",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                background: "linear-gradient(135deg,#16a34a,#22c55e)",
+                                border: "2.5px solid rgba(255,255,255,0.9)",
+                                borderRadius: 24,
+                                padding: "7px 14px 7px 10px",
+                                boxShadow: "0 4px 20px rgba(34,197,94,0.55), 0 2px 6px rgba(0,0,0,0.35)",
+                                minWidth: 52,
+                              }}>
+                                {/* Bus SVG icon — always upright */}
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ flexShrink: 0 }}>
+                                  <path d="M4 16c0 .88.39 1.67 1 2.22V20a1 1 0 0 0 2 0v-1h10v1a1 1 0 0 0 2 0v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm9 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM6 9V6h12v3H6z"/>
+                                </svg>
+                                {/* Speed indicator dot */}
+                                <span style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: "50%",
+                                  background: bus.speed > 10 ? "#bbf7d0" : "#fde68a",
+                                  flexShrink: 0,
+                                }} />
+                              </div>
+
+                              {/* Bus plate label — always upright */}
+                              <div style={{
+                                marginTop: 5,
+                                background: "rgba(0,0,0,0.82)",
+                                backdropFilter: "blur(6px)",
+                                color: "#22c55e",
+                                fontFamily: "monospace",
+                                fontWeight: 700,
+                                fontSize: 11,
+                                letterSpacing: "0.05em",
+                                padding: "3px 9px",
+                                borderRadius: 99,
+                                border: "1px solid rgba(34,197,94,0.4)",
+                                whiteSpace: "nowrap",
+                                pointerEvents: "none",
+                              }}>
+                                🚌 {bus.busNumber}
+                              </div>
+                              <style>{`
+                                @keyframes busRingPulse {
+                                  0%   { transform: translate(-50%,-50%) scale(0.6); opacity:0.9; }
+                                  100% { transform: translate(-50%,-50%) scale(1.9); opacity:0; }
+                                }
+                                @keyframes spinSlow {
+                                  from { transform: rotate(0deg); }
+                                  to { transform: rotate(360deg); }
+                                }
+                                .animate-spin-slow {
+                                  animation: spinSlow 8s linear infinite;
+                                }
+                              `}</style>
+                            </div>
+                          </OverlayView>
+                        ))}
                       </GoogleMap>
-                    )}
-                  </div>
+
+                      <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+                        {primaryBus && (
+                          <button
+                            onClick={() => {
+                              const targetState = !isLockedOnBus;
+                              setIsLockedOnBus(targetState);
+                              if (targetState && mapRef) {
+                                mapRef.panTo({ lat: primaryBus.latitude, lng: primaryBus.longitude });
+                              }
+                            }}
+                            className={`p-3 rounded-xl shadow-lg border flex items-center justify-center transition-all duration-300 backdrop-blur-md cursor-pointer ${
+                              isLockedOnBus
+                                ? "bg-emerald-500 text-white border-emerald-400 hover:bg-emerald-600"
+                                : "bg-[var(--color-surface)]/95 text-[var(--color-on-surface)] border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)]"
+                            }`}
+                            title={isLockedOnBus ? "Unlock camera from bus" : "Lock camera on bus"}
+                          >
+                            <Compass className={`h-4.5 w-4.5 ${isLockedOnBus ? "animate-spin-slow" : ""}`} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (mapRef && drawPath.length > 0) {
+                              const bounds = new google.maps.LatLngBounds();
+                              drawPath.forEach((pt) => bounds.extend(pt));
+                              mapRef.fitBounds(bounds, { top: 30, right: 30, bottom: 30, left: 30 });
+                            }
+                          }}
+                          className="p-3 rounded-xl bg-[var(--color-surface)]/95 text-[var(--color-on-surface)] border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] shadow-lg transition-all backdrop-blur-md cursor-pointer"
+                          title="Fit map to route"
+                        >
+                          <Navigation className="h-4.5 w-4.5 rotate-45" />
+                        </button>
+
+                        <button
+                          onClick={toggleFullscreen}
+                          className="p-3 rounded-xl bg-[var(--color-surface)]/95 text-[var(--color-on-surface)] border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] shadow-lg transition-all backdrop-blur-md cursor-pointer"
+                          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                        >
+                          {isFullscreen ? (
+                            <Minimize2 className="h-4.5 w-4.5" />
+                          ) : (
+                            <Maximize2 className="h-4.5 w-4.5" />
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
                 </div>
 
-                {/* Stops Table Grid */}
-                <div className="space-y-4">
-                  <span className="text-[10px] font-bold text-muted uppercase tracking-widest block">
-                    Stops Registry
-                  </span>
+                {/* Real-Time Next-Stop Arrival Times & Stops Registry */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-indigo-500" />
+                      Live Stop Schedule & Estimated Arrival Times (ETA)
+                    </span>
+                    {primaryBus && (
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold">
+                        Calculated from Live Bus {primaryBus.busNumber}
+                      </span>
+                    )}
+                  </div>
 
                   {drawStops.length === 0 ? (
                     <div className="text-center py-6 text-xs text-muted border border-dashed border-[var(--color-outline-variant)] rounded-xl">
                       No stops defined for this route path yet.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto border border-[var(--color-outline-variant)] rounded-xl">
+                    <div className="overflow-x-auto border border-[var(--color-outline-variant)] rounded-2xl">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[var(--color-surface-variant)]/60 text-[9px] font-bold text-muted uppercase tracking-wider border-b border-[var(--color-outline-variant)]">
-                            <th className="py-2.5 pl-3">Stop Name</th>
-                            <th className="py-2.5">Dist. from Terminal</th>
-                            <th className="py-2.5">Fare from Start</th>
+                            <th className="py-3 pl-4">#</th>
+                            <th className="py-3">Stop Name</th>
+                            <th className="py-3">Dist. from Terminal</th>
+                            <th className="py-3">Live Arrival Time (ETA)</th>
+                            <th className="py-3 pr-4">Fare from Start</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--color-outline-variant)] text-xs">
@@ -625,18 +1098,46 @@ export default function CompanyRoutesPage() {
                             const stopFare =
                               activeRoute.baseFare +
                               stop.distanceFromStart * activeRoute.ratePerKm;
+                            const etaInfo = calculateStopETA(stop, primaryBus);
+
                             return (
                               <tr
                                 key={idx}
                                 className="hover:bg-[var(--color-surface-variant)]/30 transition-colors"
                               >
-                                <td className="py-3 pl-3 font-semibold text-[var(--color-on-surface)]">
-                                  {stop.name}
+                                <td className="py-3 pl-4 font-mono font-bold text-muted">
+                                  {idx + 1}
                                 </td>
-                                <td className="py-3 font-mono text-muted">
-                                  {stop.distanceFromStart.toFixed(2)} km
+                                <td className="py-3 font-semibold text-[var(--color-on-surface)] flex items-center gap-2">
+                                  <MapPin className="h-3.5 w-3.5 text-indigo-500" />
+                                  <span>{stop.name}</span>
                                 </td>
-                                <td className="py-3 font-mono font-semibold text-emerald-500">
+                                <td className="py-3 text-muted font-mono">
+                                  {stop.distanceFromStart.toFixed(1)} km
+                                </td>
+                                <td className="py-3">
+                                  {etaInfo ? (
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
+                                          etaInfo.status === "At Stop"
+                                            ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 animate-pulse"
+                                            : "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"
+                                        }`}
+                                      >
+                                        {etaInfo.text}
+                                      </span>
+                                      <span className="text-[11px] font-mono text-muted">
+                                        ({etaInfo.clockTime})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted font-mono text-[11px]">
+                                      — (Waiting for active shift)
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4 font-mono font-semibold text-emerald-500">
                                   LKR {stopFare.toFixed(2)}
                                 </td>
                               </tr>
@@ -648,120 +1149,129 @@ export default function CompanyRoutesPage() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
-      {/* Add Route Dialog */}
+      {/* Add Route Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="card w-full max-w-md p-6 space-y-6 shadow-2xl relative">
-            <h3 className="text-base font-bold text-[var(--color-on-surface)]">
-              Register New Transit Route
-            </h3>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="card max-w-md w-full p-6 space-y-6 border border-[var(--color-outline-variant)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-outline-variant)] pb-4">
+              <h3 className="text-base font-bold text-[var(--color-on-surface)]">
+                Create Transit Route
+              </h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-muted hover:text-[var(--color-on-surface)] text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handleAddRoute} className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1 col-span-1">
-                  <label className="text-[9px] font-bold text-muted uppercase tracking-wider">
-                    Route ID
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 138"
-                    value={newRouteId}
-                    onChange={(e) => setNewRouteId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1 col-span-2">
-                  <label className="text-[9px] font-bold text-muted uppercase tracking-wider">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Kottawa - Pettah"
-                    value={newRouteName}
-                    onChange={(e) => setNewRouteName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none"
-                  />
-                </div>
+            <form onSubmit={handleCreateRoute} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">
+                  Route Identifier Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 593 or 138"
+                  value={newRouteId}
+                  onChange={(e) => setNewRouteId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] font-mono font-bold focus:outline-none focus:border-indigo-500 uppercase"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">
+                  Route Name / Corridor
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kandy - Matale"
+                  value={newRouteName}
+                  onChange={(e) => setNewRouteName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-indigo-500"
+                  required
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-muted uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">
                     Start Terminal
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Kottawa"
+                    placeholder="e.g. Kandy"
                     value={newStart}
                     onChange={(e) => setNewStart(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-indigo-500"
+                    required
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-muted uppercase tracking-wider">
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">
                     End Terminal
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Pettah"
+                    placeholder="e.g. Matale"
                     value={newEnd}
                     onChange={(e) => setNewEnd(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none focus:border-indigo-500"
+                    required
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-muted uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">
                     Base Fare (LKR)
                   </label>
                   <input
                     type="number"
-                    required
+                    min="0"
+                    step="5"
                     value={newBase}
                     onChange={(e) => setNewBase(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] font-mono focus:outline-none focus:border-indigo-500"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-muted uppercase tracking-wider">
-                    Rate Per KM (LKR)
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted uppercase tracking-widest block">
+                    Rate per KM (LKR)
                   </label>
                   <input
                     type="number"
-                    required
+                    min="0"
+                    step="1"
                     value={newRate}
                     onChange={(e) => setNewRate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-outline-variant)] bg-[var(--color-surface-variant)] text-xs text-[var(--color-on-surface)] font-mono focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3">
+              <div className="flex gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-variant)] rounded-xl text-xs font-bold text-[var(--color-on-surface)] cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl border border-[var(--color-outline-variant)] text-xs font-bold text-muted cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="btn-primary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1"
+                  className="flex-1 btn-primary py-2.5 rounded-xl text-xs font-bold cursor-pointer"
                 >
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Save Route
+                  Create Route
                 </button>
               </div>
             </form>
@@ -769,5 +1279,19 @@ export default function CompanyRoutesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CompanyRoutesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="py-20 flex justify-center">
+          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
+        </div>
+      }
+    >
+      <CompanyRoutesContent />
+    </Suspense>
   );
 }
