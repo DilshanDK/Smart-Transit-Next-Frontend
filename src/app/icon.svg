@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Background Gradient: Brand Smart Transit Emerald to Cyan -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Glass Specular Reflection -->
+    <linearGradient id="glossGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Windshield Gradient -->
+    <linearGradient id="windshield" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#064E3B" />
+      <stop offset="60%" stop-color="#022C22" />
+      <stop offset="100%" stop-color="#011812" />
+    </linearGradient>
+
+    <!-- Windshield Reflection Glare -->
+    <linearGradient id="windshieldGlare" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#67E8F9" stop-opacity="0.6" />
+      <stop offset="35%" stop-color="#A7F3D0" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#67E8F9" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Headlight Beam Glow -->
+    <linearGradient id="headlightGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#67E8F9" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+
+    <!-- Destination Sign / LED Matrix -->
+    <linearGradient id="ledMatrix" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="50%" stop-color="#6EE7B7" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter for Depth -->
+    <filter id="busShadow" x="-10%" y="-10%" width="120%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#022C22" flood-opacity="0.45" />
+    </filter>
+
+    <filter id="lightGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="glow" />
+      <feComposite in="SourceGraphic" in2="glow" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Tile -->
+  <rect x="4" y="4" width="120" height="120" rx="30" ry="30" fill="url(#bgGrad)" />
+  
+  <!-- Outer Subtle Border -->
+  <rect x="4" y="4" width="120" height="120" rx="30" ry="30" fill="none" stroke="#6EE7B7" stroke-width="2" stroke-opacity="0.4" />
+
+  <!-- Upper Half Glass Sheen -->
+  <path d="M 4 34 C 4 17.43 17.43 4 34 4 L 94 4 C 110.57 4 124 17.43 124 34 L 124 58 C 124 58 84 76 64 76 C 44 76 4 58 4 58 Z" fill="url(#glossGrad)" />
+
+  <!-- Dynamic Transit Speed Waves / Rails at Base -->
+  <g opacity="0.35" stroke="#A7F3D0" stroke-width="2.5" stroke-linecap="round">
+    <line x1="28" y1="108" x2="100" y2="108" />
+    <line x1="38" y1="114" x2="90" y2="114" stroke-width="2" />
+  </g>
+
+  <!-- Modern Transit Vehicle Container (with Drop Shadow) -->
+  <g filter="url(#busShadow)">
+    
+    <!-- Outer Vehicle Body Shell (Crisp White/Silver Contrast) -->
+    <path d="
+      M 38 32
+      C 38 24, 46 22, 64 22
+      C 82 22, 90 24, 90 32
+      L 93 78
+      C 93 84, 88 88, 80 89
+      L 48 89
+      C 40 88, 35 84, 35 78
+      Z
+    " fill="#FFFFFF" />
+
+    <!-- Aerodynamic Roof Cap Accent -->
+    <path d="
+      M 43 27
+      C 48 24.5, 56 24, 64 24
+      C 72 24, 80 24.5, 85 27
+      L 83 31
+      C 78 29.5, 71 29, 64 29
+      C 57 29, 50 29.5, 45 31
+      Z
+    " fill="#059669" opacity="0.9" />
+
+    <!-- LED Destination Matrix Sign -->
+    <rect x="47" y="32" width="34" height="6.5" rx="2" fill="#064E3B" />
+    <rect x="49" y="33.5" width="30" height="3.5" rx="1.5" fill="url(#ledMatrix)" filter="url(#lightGlow)" />
+
+    <!-- Large Panoramic Aerodynamic Windshield -->
+    <path d="
+      M 41 41
+      L 87 41
+      L 86 64
+      C 86 67, 83 69, 78 70
+      L 50 70
+      C 45 69, 42 67, 42 64
+      Z
+    " fill="url(#windshield)" />
+
+    <!-- Windshield Specular Reflection Glare Wedge -->
+    <path d="
+      M 43 43
+      L 60 43
+      L 47 67
+      L 43 65
+      Z
+    " fill="url(#windshieldGlare)" />
+
+    <!-- Center Electric Wing / Transit Grille Blade -->
+    <rect x="52" y="73" width="24" height="3" rx="1.5" fill="#059669" />
+
+    <!-- Sleek High-Intensity LED Headlights (Left & Right Angled) -->
+    <!-- Left Headlight -->
+    <polygon points="41,72 49,72 47,77 40,75" fill="url(#headlightGlow)" filter="url(#lightGlow)" />
+    <!-- Right Headlight -->
+    <polygon points="87,72 79,72 81,77 88,75" fill="url(#headlightGlow)" filter="url(#lightGlow)" />
+
+    <!-- Lower Bumper / Under-Guard -->
+    <path d="
+      M 44 82
+      C 48 84, 56 85, 64 85
+      C 72 85, 80 84, 84 82
+      L 85 86
+      C 80 88, 72 89, 64 89
+      C 56 89, 48 88, 43 86
+      Z
+    " fill="#0F172A" />
+
+    <!-- Wheels / Side Road Skirts -->
+    <rect x="33" y="76" width="3.5" height="12" rx="1.5" fill="#047857" />
+    <rect x="91.5" y="76" width="3.5" height="12" rx="1.5" fill="#047857" />
+  </g>
+</svg>
