@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ShieldCheck,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 
 interface RouteStop {
@@ -64,6 +65,9 @@ interface LiveBus {
   speed: number;
   heading: number;
   status: string;
+  direction?: string;
+  origin?: string;
+  destination?: string;
   updatedAt: string;
 }
 
@@ -101,6 +105,9 @@ export default function PassengerTrackingPage() {
   const [isLockedOnBus, setIsLockedOnBus] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Track previous bus latitude to infer direction from real GPS movement
+  const prevBusLatRef = useRef<number | null>(null);
+  const [inferredIsToKandy, setInferredIsToKandy] = useState<boolean | null>(null);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -200,6 +207,18 @@ export default function PassengerTrackingPage() {
 
     socket.on("bus_moved", (payload: LiveBus) => {
       if (payload && payload.routeId === activeRoute.routeId) {
+        // Infer direction from GPS latitude movement when no explicit 'direction' field is present.
+        // Route 593: Kandy (7.29°N) to Matale (7.47°N) — latitude increases going Northbound.
+        // Decreasing latitude = bus moving South = heading Towards Kandy.
+        // Increasing latitude = bus moving North = heading Towards Matale.
+        if (!payload.direction) {
+          const prevLat = prevBusLatRef.current;
+          if (prevLat !== null && Math.abs(payload.latitude - prevLat) > 0.00005) {
+            setInferredIsToKandy(payload.latitude < prevLat);
+          }
+        }
+        prevBusLatRef.current = payload.latitude;
+
         setLiveBuses((prev) => {
           const idx = prev.findIndex((b) => b.driverId === payload.driverId);
           if (idx >= 0) {
@@ -240,8 +259,92 @@ export default function PassengerTrackingPage() {
     };
   }, [activeRoute?.routeId]);
 
+  // Precalculate cumulative distances along polyline
+  const routePathMetrics = useMemo(() => {
+    if (!activeRoute?.path?.coordinates || activeRoute.path.coordinates.length < 2) {
+      return null;
+    }
+    const coords = activeRoute.path.coordinates;
+    const cumDist: number[] = [0];
+    for (let i = 1; i < coords.length; i++) {
+      const [pLng, pLat] = coords[i - 1];
+      const [cLng, cLat] = coords[i];
+      cumDist.push(cumDist[i - 1] + getLatLngDistance(pLat, pLng, cLat, cLng));
+    }
+    return {
+      coords,
+      cumDist,
+      totalLength: cumDist[cumDist.length - 1],
+    };
+  }, [activeRoute?.path?.coordinates]);
+
   // Primary active bus for ETA calculation
   const primaryBus = liveBuses.length > 0 ? liveBuses[0] : null;
+
+  // Detect bus direction and progress along route
+  const busRouteInfo = useMemo(() => {
+    if (!primaryBus) return null;
+
+    // 1. Determine direction with a 3-tier priority system:
+    //    Priority 1: Explicit direction field (from mock simulation or future backend support)
+    //    Priority 2: Inferred from lat movement history (real GPS — decreasing lat = heading South towards Kandy)
+    //    Priority 3: Fallback to unknown direction (no movement detected yet)
+    let isToKandy: boolean;
+    if (primaryBus.direction) {
+      // Mock / future backend: explicit direction string
+      isToKandy = primaryBus.direction.toUpperCase().includes("KANDY");
+    } else if (inferredIsToKandy !== null) {
+      // Real GPS: use lat-movement inferred direction
+      isToKandy = inferredIsToKandy;
+    } else {
+      // Final fallback: no movement detected yet — assume Towards Matale (northbound)
+      isToKandy = false;
+    }
+
+    // 2. Find closest vertex on the polyline path to find current km along route (0km at Kandy to ~25.7km at Matale)
+    let busKm = 0;
+    if (routePathMetrics && routePathMetrics.coords.length > 0) {
+      let minD = Infinity;
+      let bestIdx = 0;
+      const bLat = primaryBus.latitude;
+      const bLng = primaryBus.longitude;
+
+      for (let i = 0; i < routePathMetrics.coords.length; i++) {
+        const [cLng, cLat] = routePathMetrics.coords[i];
+        const dLat = cLat - bLat;
+        const dLng = cLng - bLng;
+        const dSq = dLat * dLat + dLng * dLng;
+        if (dSq < minD) {
+          minD = dSq;
+          bestIdx = i;
+        }
+      }
+      busKm = routePathMetrics.cumDist[bestIdx];
+    } else {
+      busKm = 0;
+    }
+
+    const directionLabel = isToKandy ? "Towards Kandy" : "Towards Matale";
+    const destinationName = isToKandy ? "Kandy" : "Matale";
+    const originName = isToKandy ? "Matale" : "Kandy";
+
+    return {
+      isToKandy,
+      busKm,
+      directionLabel,
+      destinationName,
+      originName,
+    };
+  }, [primaryBus, routePathMetrics]);
+
+  // Stops dynamically ordered in the direction of travel (Matale -> Kandy or Kandy -> Matale)
+  const orderedStops = useMemo(() => {
+    if (!drawStops || drawStops.length === 0) return [];
+    if (busRouteInfo?.isToKandy) {
+      return [...drawStops].reverse();
+    }
+    return drawStops;
+  }, [drawStops, busRouteInfo?.isToKandy]);
 
   // Lock camera to bus when active
   useEffect(() => {
@@ -255,29 +358,75 @@ export default function PassengerTrackingPage() {
     setIsLockedOnBus(false);
   };
 
-  // Calculate live ETA for each stop based on current bus location & speed
+  // Calculate live ETA or passed status for each stop based on current bus location, direction & speed
   const calculateStopETA = (stop: RouteStop, bus: LiveBus | null) => {
-    if (!bus) return null;
-    const distKm = getLatLngDistance(
-      bus.latitude,
-      bus.longitude,
-      stop.location.coordinates[1],
-      stop.location.coordinates[0]
-    );
+    if (!bus || !busRouteInfo) return null;
 
-    // If within 250 meters
-    if (distKm < 0.25) {
+    const stopLat = stop.location.coordinates[1];
+    const stopLng = stop.location.coordinates[0];
+    const directDistKm = getLatLngDistance(bus.latitude, bus.longitude, stopLat, stopLng);
+
+    // 1. If currently within stop proximity (350 meters)
+    if (directDistKm < 0.35) {
       return {
         status: "At Stop",
-        distKm: distKm.toFixed(1),
-        text: "Arrived",
+        distKm: directDistKm.toFixed(1),
+        text: "At Stop",
         clockTime: "Now",
         isPast: false,
       };
     }
 
     const busSpeed = bus.speed > 15 ? bus.speed : 35; // Default 35 km/h urban speed
-    const mins = Math.max(1, Math.round((distKm / busSpeed) * 60));
+    const isToKandy = busRouteInfo.isToKandy;
+    const busKm = busRouteInfo.busKm;
+    const stopKm = stop.distanceFromStart;
+
+    // 2. Determine if stop is PASSED or UPCOMING based on direction of travel
+    let isPassed = false;
+    let distDelta = 0;
+
+    if (isToKandy) {
+      // Traveling from Matale (~25.7 km) down to Kandy (0.0 km)
+      // Stops with distanceFromStart > busKm + 0.35 are in the past (already passed)!
+      if (stopKm > busKm + 0.35) {
+        isPassed = true;
+        distDelta = Math.max(directDistKm, stopKm - busKm);
+      } else {
+        isPassed = false;
+        distDelta = Math.max(directDistKm, busKm - stopKm);
+      }
+    } else {
+      // Traveling from Kandy (0.0 km) up to Matale (~25.7 km)
+      // Stops with distanceFromStart < busKm - 0.35 are in the past (already passed)!
+      if (stopKm < busKm - 0.35) {
+        isPassed = true;
+        distDelta = Math.max(directDistKm, busKm - stopKm);
+      } else {
+        isPassed = false;
+        distDelta = Math.max(directDistKm, stopKm - busKm);
+      }
+    }
+
+    if (isPassed) {
+      const minsAgo = Math.max(1, Math.round((distDelta / busSpeed) * 60));
+      const passedTime = new Date(Date.now() - minsAgo * 60000);
+      const clockTime = passedTime.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      return {
+        status: "Passed",
+        distKm: distDelta.toFixed(1),
+        text: `Passed ~${minsAgo}m ago`,
+        clockTime: `Passed at ${clockTime}`,
+        isPast: true,
+      };
+    }
+
+    // Stop is approaching in front of the bus
+    const mins = Math.max(1, Math.round((distDelta / busSpeed) * 60));
     const arrivalDate = new Date(Date.now() + mins * 60000);
     const clockTime = arrivalDate.toLocaleTimeString([], {
       hour: "2-digit",
@@ -286,7 +435,7 @@ export default function PassengerTrackingPage() {
 
     return {
       status: "Approaching",
-      distKm: distKm.toFixed(1),
+      distKm: distDelta.toFixed(1),
       text: `${mins} min${mins > 1 ? "s" : ""}`,
       clockTime,
       isPast: false,
@@ -722,7 +871,15 @@ export default function PassengerTrackingPage() {
                   <Clock className="h-4 w-4 text-emerald-500" />
                   <h3 className="text-sm font-bold text-[var(--color-on-surface)]">Next-Stop ETAs</h3>
                 </div>
-                <span className="text-[11px] text-muted font-medium">Route {activeRoute.routeId}</span>
+                <div className="flex items-center gap-2">
+                  {busRouteInfo && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                      <Navigation className="h-3 w-3" />
+                      {busRouteInfo.directionLabel}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-muted font-medium">Route {activeRoute.routeId}</span>
+                </div>
               </div>
 
               <div
@@ -768,36 +925,78 @@ export default function PassengerTrackingPage() {
                     }
                   }
                 `}} />
-                {drawStops.map((stop, idx) => {
+                {orderedStops.map((stop, idx) => {
                   const eta = calculateStopETA(stop, primaryBus);
+                  const totalRouteLength =
+                    routePathMetrics?.totalLength ||
+                    (drawStops.length > 0
+                      ? drawStops[drawStops.length - 1].distanceFromStart
+                      : 25.7);
+                  const displayKm = busRouteInfo?.isToKandy
+                    ? Math.max(0, totalRouteLength - stop.distanceFromStart)
+                    : stop.distanceFromStart;
 
                   return (
                     <div
-                      key={`eta-stop-${idx}`}
-                      className="p-3 rounded-xl bg-[var(--color-bg)] border border-[var(--color-outline-variant)] flex items-center justify-between hover:border-emerald-500/30 transition-all"
+                      key={`eta-stop-${stop.name}-${idx}`}
+                      className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
+                        eta?.status === "At Stop"
+                          ? "bg-emerald-500/10 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+                          : eta?.isPast
+                          ? "bg-[var(--color-bg)]/40 border-[var(--color-outline-variant)] opacity-70"
+                          : "bg-[var(--color-bg)] border-[var(--color-outline-variant)] hover:border-emerald-500/30"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs">
-                          {idx + 1}
+                        <div
+                          className={`h-7 w-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                            eta?.status === "At Stop"
+                              ? "bg-emerald-500 text-white animate-pulse"
+                              : eta?.isPast
+                              ? "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                              : "bg-emerald-500/10 text-emerald-500"
+                          }`}
+                        >
+                          {eta?.isPast ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500/70" />
+                          ) : (
+                            idx + 1
+                          )}
                         </div>
                         <div>
-                          <span className="text-xs font-bold text-[var(--color-on-surface)] block">
+                          <span
+                            className={`text-xs font-bold block ${
+                              eta?.isPast
+                                ? "text-slate-400"
+                                : "text-[var(--color-on-surface)]"
+                            }`}
+                          >
                             {stop.name}
                           </span>
                           <span className="text-[10px] text-muted">
-                            {stop.distanceFromStart.toFixed(1)} km from start
+                            {displayKm.toFixed(1)} km from start
                           </span>
                         </div>
                       </div>
 
-                      {/* Live ETA Badge */}
+                      {/* Live ETA / Passed Badge */}
                       {eta ? (
                         <div className="text-right">
-                          <span className="text-xs font-extrabold text-emerald-500 block">
+                          <span
+                            className={`text-xs font-extrabold block ${
+                              eta.status === "At Stop"
+                                ? "text-emerald-400 animate-pulse"
+                                : eta.isPast
+                                ? "text-slate-400"
+                                : "text-emerald-500"
+                            }`}
+                          >
                             {eta.text}
                           </span>
                           <span className="text-[10px] text-muted font-medium">
-                            {eta.clockTime} ({eta.distKm} km away)
+                            {eta.isPast
+                              ? `${eta.clockTime} (${eta.distKm} km behind)`
+                              : `${eta.clockTime} (${eta.distKm} km away)`}
                           </span>
                         </div>
                       ) : (
