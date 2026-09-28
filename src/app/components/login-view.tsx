@@ -107,7 +107,11 @@ export default function UnifiedLoginView() {
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Google sign-in failed.");
+      if (err.code === 'auth/cancelled-popup-request') {
+        setError("Sign-in popup was interrupted. Please check your browser's popup blocker and try again.");
+      } else if (err.code !== 'auth/popup-closed-by-user') {
+        setError(err.message || "Google sign-in failed.");
+      }
     } finally {
       setGoogleLoading(false);
     }
