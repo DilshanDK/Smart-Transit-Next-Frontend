@@ -2,10 +2,15 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 
 export const getApiBaseUrl = () => {
+  // Always prefer the explicitly defined API URL from environment variables
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // Fallback for local development if not specified
   if (typeof window !== 'undefined' && window.location.hostname) {
     return `http://${window.location.hostname}:4000`;
   }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  return 'http://localhost:4000';
 };
 
 export const apiClient = axios.create({
